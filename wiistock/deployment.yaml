@@ -1,0 +1,149 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: VAR:INSTANCE_NAME-uploads-pv
+spec:
+  capacity:
+    storage: 29Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: VAR:INSTANCE_NAME-nfs
+  mountOptions:
+    - tcp
+    - nfsvers=3
+  nfs:
+    path: /zpool-127780/VAR:PARTITION_NAME
+    server: 10.16.103.99
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: VAR:INSTANCE_NAME-letsencrypt-pv
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: VAR:INSTANCE_NAME-nfs
+  mountOptions:
+    - tcp
+    - nfsvers=3
+  nfs:
+    path: /zpool-127780/VAR:PARTITION_NAME
+    server: 10.16.103.99
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: VAR:INSTANCE_NAME-uploads
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: VAR:INSTANCE_NAME-nfs
+  resources:
+    requests:
+      storage: 29Gi
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: VAR:INSTANCE_NAME-letsencrypt
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: VAR:INSTANCE_NAME-nfs
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: VAR:INSTANCE_NAME-deployment
+  labels:
+    app: VAR:INSTANCE_NAME
+spec:
+  replicas: VAR:REPLICAS_COUNT
+  selector:
+    matchLabels:
+      app: VAR:INSTANCE_NAME
+  template:
+    metadata:
+      labels:
+        app: VAR:INSTANCE_NAME
+    spec:
+      volumes:
+      - name: VAR:INSTANCE_NAME-letsencrypt
+        persistentVolumeClaim:
+          claimName: VAR:INSTANCE_NAME-letsencrypt
+      - name: VAR:INSTANCE_NAME-project
+        emptyDir: {}
+      - name: VAR:INSTANCE_NAME-uploads
+        persistentVolumeClaim:
+          claimName: VAR:INSTANCE_NAME-uploads
+      - name: VAR:INSTANCE_NAME-cache
+        emptyDir: {}
+      initContainers:
+      - name: VAR:INSTANCE_NAME-cloner
+        image: alpine/git
+        args: ["clone", "--branch=VAR:BRANCH", "--single-branch", "https://github.com/benoitcostewiilog/WiiStock", "/project"]
+        volumeMounts:
+        - mountPath: /project
+          name: VAR:INSTANCE_NAME-project
+      containers:
+      - name: VAR:INSTANCE_NAME
+        command: ["/bin/sh", "./bootstrap/entrypoint.sh"]
+        image: wiilog/wiistock:latest
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        env:
+        - name: DOMAIN
+          value: "VAR:DOMAIN"
+        - name: DATABASE_HOST
+          value: "VAR:DATABASE_HOST"
+        - name: DATABASE_PORT
+          value: "VAR:DATABASE_PORT"
+        - name: DATABASE_USER
+          value: "VAR:DATABASE_USER"
+        - name: DATABASE_PASS
+          value: "VAR:DATABASE_PASS"
+        - name: DATABASE_NAME
+          value: "VAR:DATABASE_NAME"
+        - name: DATABASE_URL
+          value: "mysql://$(DATABASE_USER):$(DATABASE_PASS)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+        - name: APP_ENV
+          value: "VAR:ENV"
+        - name: APP_SECRET
+          value: "VAR:SECRET"
+        - name: APP_LOCALE
+          value: "VAR:LOCALE"
+        - name: APP_CLIENT
+          value: "VAR:CLIENT"
+        - name: APP_URL
+          value: "VAR:URL"
+        - name: APP_LOGGER
+          value: "VAR:LOGGER"
+        - name: APP_FORBIDDEN_PHONES
+          value: "VAR:FORBIDDEN_PHONES"
+        - name: APP_DASHBOARD_TOKEN
+          value: "VAR:DASHBOARD_TOKEN"
+        volumeMounts:
+        - mountPath: /etc/letsencrypt
+          name: VAR:INSTANCE_NAME-letsencrypt
+        - mountPath: /project
+          name: VAR:INSTANCE_NAME-project
+        - mountPath: /project/public/uploads
+          name: VAR:INSTANCE_NAME-uploads
+        - mountPath: /project/var/
+          name: VAR:INSTANCE_NAME-cache
