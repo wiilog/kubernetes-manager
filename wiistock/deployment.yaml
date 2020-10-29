@@ -4,7 +4,7 @@ metadata:
   name: VAR:INSTANCE_NAME-uploads-pv
 spec:
   capacity:
-    storage: 29Gi
+    storage: 19Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
@@ -49,7 +49,7 @@ spec:
   storageClassName: VAR:INSTANCE_NAME-nfs
   resources:
     requests:
-      storage: 29Gi
+      storage: 19Gi
 
 ---
 kind: PersistentVolumeClaim
@@ -94,15 +94,43 @@ spec:
       - name: VAR:INSTANCE_NAME-cache
         emptyDir: {}
       initContainers:
-      - name: VAR:INSTANCE_NAME-cloner
+      - name: cloner
         image: alpine/git
         args: ["clone", "--branch=VAR:BRANCH", "--single-branch", "https://github.com/benoitcostewiilog/WiiStock", "/project"]
         volumeMounts:
         - mountPath: /project
           name: VAR:INSTANCE_NAME-project
+      - name: initializer
+        image: wiilog/wiistock-initializer:latest
+        env:
+        - name: DATABASE_HOST
+          value: "VAR:DATABASE_HOST"
+        - name: DATABASE_PORT
+          value: "VAR:DATABASE_PORT"
+        - name: DATABASE_USER
+          value: "VAR:DATABASE_USER"
+        - name: DATABASE_PASSWORD
+          value: "VAR:DATABASE_PASS"
+        - name: DATABASE_NAME
+          value: "VAR:DATABASE_NAME"
+        - name: DATABASE_URL
+          value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
+        - name: APP_ENV
+          value: "VAR:ENV"
+        - name: APP_LOCALE
+          value: "VAR:LOCALE"
+        - name: APP_CLIENT
+          value: "VAR:CLIENT"
+        - name: APP_URL
+          value: "VAR:URL"
+        - name: APP_DASHBOARD_TOKEN
+          value: "VAR:DASHBOARD_TOKEN"
+        volumeMounts:
+        - mountPath: /project
+          name: VAR:INSTANCE_NAME-project
       containers:
-      - name: VAR:INSTANCE_NAME
-        command: ["/bin/sh", "./bootstrap/entrypoint.sh"]
+      - name: wiistock
+        command: ["/bootstrap/entrypoint.sh"]
         image: wiilog/wiistock:latest
         ports:
         - containerPort: 80
@@ -110,24 +138,16 @@ spec:
         env:
         - name: DOMAIN
           value: "VAR:DOMAIN"
-        - name: DATABASE_HOST
-          value: "VAR:DATABASE_HOST"
-        - name: DATABASE_PORT
-          value: "VAR:DATABASE_PORT"
-        - name: DATABASE_USER
-          value: "VAR:DATABASE_USER"
-        - name: DATABASE_PASS
-          value: "VAR:DATABASE_PASS"
-        - name: DATABASE_NAME
-          value: "VAR:DATABASE_NAME"
         - name: DATABASE_URL
-          value: "mysql://$(DATABASE_USER):$(DATABASE_PASS)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+          value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
         - name: APP_ENV
           value: "VAR:ENV"
         - name: APP_SECRET
           value: "VAR:SECRET"
         - name: APP_LOCALE
           value: "VAR:LOCALE"
+        - name: APP_INSTANCE
+          value: "VAR:INSTANCE_NAME"
         - name: APP_CLIENT
           value: "VAR:CLIENT"
         - name: APP_URL
@@ -138,6 +158,8 @@ spec:
           value: "VAR:FORBIDDEN_PHONES"
         - name: APP_DASHBOARD_TOKEN
           value: "VAR:DASHBOARD_TOKEN"
+        - name: CORS_ALLOW_ORIGIN
+          value: "^https?://VAR:DOMAIN(:[0-9]+)?$"
         volumeMounts:
         - mountPath: /etc/letsencrypt
           name: VAR:INSTANCE_NAME-letsencrypt

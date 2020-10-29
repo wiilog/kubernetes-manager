@@ -12,13 +12,24 @@ create_instance() {
     TEMPLATE=$1
     NAME=$2
 
+    # Check if template exists
     if [ ! -d "./$TEMPLATE" ]; then
         echo "Unknown template $TEMPLATE"
         exit 102
     fi
 
-    chmod +x $TEMPLATE/create.sh
-    (cd $TEMPLATE; ./create.sh $NAME)
+    # Check if instance already exists and ask for confirmation
+    if [ -d "instances/$NAME" ]; then
+        read -p "Instance \"$NAME\" already exists, uploads will be lost and data may get corrupted, continue? " -n 1 -r
+        echo 
+
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 0
+        fi
+    fi
+
+    chmod +x $TEMPLATE/setup.sh
+    (cd $TEMPLATE; ./setup.sh $NAME)
 }
   
 deploy() {
@@ -30,8 +41,10 @@ deploy() {
     NAME=$1
     ENVIRONMENT=$2
 
+    # If no environment is specified, update all environments
     if [ -z "$ENVIRONMENT" ]; then
-        PODS=$(kubectl get pods | grep "$NAME-.*-deployment" | tr -s ' ')
+        # Check if deployment exists
+        PODS=$(kubectl get deployments | grep "$NAME-.*-deployment")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\""
             exit 202
@@ -46,7 +59,8 @@ deploy() {
     else
         INSTANCE=$NAME-$ENVIRONMENT
         
-        PODS=$(kubectl get pods | grep "$INSTANCE-deployment" | tr -s ' ')
+        # Check if deployment exists
+        PODS=$(kubectl get deployments | grep "$INSTANCE-deployment")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\" for environment \"$ENVIRONMENT\""
             exit 202
@@ -55,23 +69,9 @@ deploy() {
         kubectl patch deployment $INSTANCE-deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
     fi
 
-
     # Démarre les pod existants en mode maintenance
     #kubectl set env deployments $INSTANCE-deployment APP_ENV=maintenance
     #kubectl set image deployment/$INSTANCE-deployment mycontainer=myimage:latest
-
-    # while read -r POD; do
-    #     FULL_NAME=$(echo "$POD" | cut -d ' ' -f 1)
-    #     STATUS=$(echo "$POD" | cut -d ' ' -f 3)
-
-    # done <<< $PODS
-
-    # echo $(readarray -t y <<< "$FULL_NAME")
-    # echo $(readarray -t y <<< "$STATUS")
-
-    # Redeploy a pod
-    # kubectl get pods | grep wiilogs-deployment | tr -s ' ' | cut -d ' ' -f X
-    # kubectl patch deployment wiilogs-deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
 }
 
 publish() {
@@ -82,8 +82,11 @@ publish() {
 
     NAME=$1
 
-    docker build -t wiilog/$NAME:latest $NAME/image/
-    docker push wiilog/$NAME:latest
+    # Build and push all images in the `images` folder of the instance
+    for IMAGE in $(ls $NAME/images); do
+        docker build -t wiilog/$IMAGE:latest $NAME/images/$IMAGE
+        docker push wiilog/$IMAGE:latest
+    done
 }
 
 usage() {
