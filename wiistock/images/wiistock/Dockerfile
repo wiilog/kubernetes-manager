@@ -30,10 +30,10 @@ RUN apk add certbot certbot-nginx
 # Copy resources
 RUN mkdir /bootstrap
 ADD resources/entrypoint.sh         /bootstrap/entrypoint.sh
+ADD resources/maintenance.sh        /bootstrap/maintenance.sh
 ADD resources/php/php.ini           /etc/php7
 ADD resources/fpm/php-fpm.conf      /etc/php7
 ADD resources/nginx/default.conf    /etc/nginx/conf.d
-RUN chmod +x /bootstrap/entrypoint.sh
 
 # Nginx
 RUN mkdir /run/nginx

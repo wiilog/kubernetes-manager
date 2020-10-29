@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#Exit if any command fails
+# Exit if any command fails
 set -e
 
 cd /project

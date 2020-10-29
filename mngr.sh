@@ -2,6 +2,18 @@
 
 PROGRAM_NAME=$(basename $0)
 COMMAND=$1
+
+activate_maintenance() {
+    local INSTANCE=$1
+    local PODS=$(kubectl get pods | grep "$INSTANCE-deployment" | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
+    local PODS_COUNT=$(echo $PODS | wc -w)
+
+    echo "Rolling $PODS_COUNT pods to maintainance mode"
+    
+    for POD in $PODS; do
+        kubectl exec -it $POD -- sh /bootstrap/maintenance.sh
+    done
+}
   
 create_instance() {
     if [ "$#" -ne 2 ]; then
@@ -9,8 +21,8 @@ create_instance() {
         exit 101
     fi
 
-    TEMPLATE=$1
-    NAME=$2
+    local TEMPLATE=$1
+    local NAME=$2
 
     # Check if template exists
     if [ ! -d "./$TEMPLATE" ]; then
@@ -38,40 +50,40 @@ deploy() {
         exit 201
     fi
 
-    NAME=$1
-    ENVIRONMENT=$2
+    local NAME=$1
+    local ENVIRONMENT=$2
 
     # If no environment is specified, update all environments
     if [ -z "$ENVIRONMENT" ]; then
         # Check if deployment exists
-        PODS=$(kubectl get deployments | grep "$NAME-.*-deployment")
+        local PODS=$(kubectl get deployments | grep "$NAME-.*-deployment")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\""
             exit 202
         fi
 
+        activate_maintenance "$NAME-.*"
+
         for INSTANCE_FILE in $(find instances/$NAME -name "*-deployment.yaml" -type f); do
-            DEPLOYMENT=$(echo $INSTANCE_FILE | grep -oP '(?<=instances/).*?(?=\-deployment.yaml)')
-            DEPLOYMENT="${DEPLOYMENT/\//-}-deployment"
+            local DEPLOYMENT=$(echo $INSTANCE_FILE | grep -oP '(?<=instances/).*?(?=\-deployment.yaml)')
+            local DEPLOYMENT="${DEPLOYMENT/\//-}-deployment"
 
             kubectl patch deployment $DEPLOYMENT -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
         done
     else
-        INSTANCE=$NAME-$ENVIRONMENT
+        local INSTANCE=$NAME-$ENVIRONMENT
         
         # Check if deployment exists
-        PODS=$(kubectl get deployments | grep "$INSTANCE-deployment")
+        local PODS=$(kubectl get deployments | grep "$INSTANCE-deployment")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\" for environment \"$ENVIRONMENT\""
             exit 202
         fi
 
+        activate_maintenance $INSTANCE
+
         kubectl patch deployment $INSTANCE-deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
     fi
-
-    # Démarre les pod existants en mode maintenance
-    #kubectl set env deployments $INSTANCE-deployment APP_ENV=maintenance
-    #kubectl set image deployment/$INSTANCE-deployment mycontainer=myimage:latest
 }
 
 publish() {
@@ -80,7 +92,7 @@ publish() {
         exit 401
     fi
 
-    NAME=$1
+    local NAME=$1
 
     # Build and push all images in the `images` folder of the instance
     for IMAGE in $(ls $NAME/images); do
