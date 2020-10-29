@@ -42,7 +42,6 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: VAR:INSTANCE_NAME-uploads
-  namespace: default
 spec:
   accessModes:
   - ReadWriteOnce
@@ -56,7 +55,6 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: VAR:INSTANCE_NAME-letsencrypt
-  namespace: default
 spec:
   accessModes:
   - ReadWriteOnce

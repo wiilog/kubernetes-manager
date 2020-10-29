@@ -5,13 +5,13 @@ COMMAND=$1
 
 activate_maintenance() {
     local INSTANCE=$1
-    local PODS=$(kubectl get pods | grep "$INSTANCE-deployment" | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
+    local PODS=$(follow-gt get pods | grep "$INSTANCE-deployment" | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
     local PODS_COUNT=$(echo $PODS | wc -w)
 
     echo "Rolling $PODS_COUNT pods to maintainance mode"
     
     for POD in $PODS; do
-        kubectl exec -it $POD -- sh /bootstrap/maintenance.sh
+        follow-gt exec -it $POD -- sh /bootstrap/maintenance.sh
     done
 }
   
@@ -31,7 +31,7 @@ create_instance() {
     fi
 
     # Check if instance already exists and ask for confirmation
-    if [ -d "instances/$NAME" ]; then
+    if [ -d "configs/$NAME" ]; then
         read -p "Instance \"$NAME\" already exists, uploads will be lost and data may get corrupted, continue? " -n 1 -r
         echo 
 
@@ -56,7 +56,7 @@ deploy() {
     # If no environment is specified, update all environments
     if [ -z "$ENVIRONMENT" ]; then
         # Check if deployment exists
-        local PODS=$(kubectl get deployments | grep "$NAME-.*-deployment")
+        local PODS=$(follow-gt get deployments | grep "$NAME-.*-deployment")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\""
             exit 202
@@ -64,17 +64,17 @@ deploy() {
 
         activate_maintenance "$NAME-.*"
 
-        for INSTANCE_FILE in $(find instances/$NAME -name "*-deployment.yaml" -type f); do
-            local DEPLOYMENT=$(echo $INSTANCE_FILE | grep -oP '(?<=instances/).*?(?=\-deployment.yaml)')
+        for INSTANCE_FILE in $(find configs/$NAME -name "*-deployment.yaml" -type f); do
+            local DEPLOYMENT=$(echo $INSTANCE_FILE | grep -oP '(?<=configs/).*?(?=\-deployment.yaml)')
             local DEPLOYMENT="${DEPLOYMENT/\//-}-deployment"
 
-            kubectl patch deployment $DEPLOYMENT -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
+            follow-gt patch deployment $DEPLOYMENT -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
         done
     else
         local INSTANCE=$NAME-$ENVIRONMENT
         
         # Check if deployment exists
-        local PODS=$(kubectl get deployments | grep "$INSTANCE-deployment")
+        local PODS=$(follow-gt get deployments | grep "$INSTANCE-deployment")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\" for environment \"$ENVIRONMENT\""
             exit 202
@@ -82,7 +82,7 @@ deploy() {
 
         activate_maintenance $INSTANCE
 
-        kubectl patch deployment $INSTANCE-deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
+        follow-gt patch deployment $INSTANCE-deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
     fi
 }
 
@@ -120,6 +120,14 @@ usage() {
 if [ -n "$COMMAND" ]; then
     shift
 fi
+
+if [[ -z $(kubectl get namespaces | grep "follow-gt") ]]; then
+    kubectl create namespace follow-gt > /dev/null
+fi
+
+follow-gt() {
+    kubectl --namespace=follow-gt "@a"
+}
 
 case $COMMAND in
     create-instance)    create_instance "$@" ;;

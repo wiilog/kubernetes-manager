@@ -1,3 +1,9 @@
+#!/bin/bash
+
+follow-gt() {
+    kubectl --namespace=follow-gt "$@"
+}
+
 # Define known environment variables
 INSTANCE_NAME=$1
 DASHBOARD_TOKEN=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
@@ -47,63 +53,62 @@ echo "    ${INSTANCE_SPACES}        |    51.210.127.44"
 read
 
 echo "  Deleting previous deployments of \"$INSTANCE_NAME-rec\" and \"$INSTANCE_NAME-prod\""
-kubectl delete deployment $INSTANCE_NAME-rec-deployment  2> /dev/null
-kubectl delete pvc $INSTANCE_NAME-rec-letsencrypt        2> /dev/null
-kubectl delete pvc $INSTANCE_NAME-rec-uploads            2> /dev/null
-kubectl delete pv $INSTANCE_NAME-rec-letsencrypt-pv      2> /dev/null
-kubectl delete pv $INSTANCE_NAME-rec-uploads-pv          2> /dev/null
-kubectl delete deployment $INSTANCE_NAME-prod-deployment 2> /dev/null
-kubectl delete pvc $INSTANCE_NAME-prod-letsencrypt       2> /dev/null
-kubectl delete pvc $INSTANCE_NAME-prod-uploads           2> /dev/null
-kubectl delete pv $INSTANCE_NAME-prod-letsencrypt-pv     2> /dev/null
-kubectl delete pv $INSTANCE_NAME-prod-uploads-pv         2> /dev/null
+follow-gt delete deployment $INSTANCE_NAME-rec-deployment  2> /dev/null
+follow-gt delete pvc $INSTANCE_NAME-rec-letsencrypt        2> /dev/null
+follow-gt delete pvc $INSTANCE_NAME-rec-uploads            2> /dev/null
+follow-gt delete pv $INSTANCE_NAME-rec-letsencrypt-pv      2> /dev/null
+follow-gt delete pv $INSTANCE_NAME-rec-uploads-pv          2> /dev/null
+follow-gt delete deployment $INSTANCE_NAME-prod-deployment 2> /dev/null
+follow-gt delete pvc $INSTANCE_NAME-prod-letsencrypt       2> /dev/null
+follow-gt delete pvc $INSTANCE_NAME-prod-uploads           2> /dev/null
+follow-gt delete pv $INSTANCE_NAME-prod-letsencrypt-pv     2> /dev/null
+follow-gt delete pv $INSTANCE_NAME-prod-uploads-pv         2> /dev/null
 
-mkdir -p ../instances
-mkdir -p ../instances/$INSTANCE_NAME
+mkdir -p ../configs
+mkdir -p ../configs/$INSTANCE_NAME
 
-REC_BALANCER_CONFIG=../instances/$INSTANCE_NAME/rec-balancer.yaml
-PROD_BALANCER_CONFIG=../instances/$INSTANCE_NAME/prod-balancer.yaml
+REC_BALANCER_CONFIG=../configs/$INSTANCE_NAME/rec-balancer.yaml
+REC_CONFIG=../configs/$INSTANCE_NAME/rec-deployment.yaml
+REC_DOMAIN=${INSTANCE_NAME}-rec.${DOMAIN}
 
-if [[ -z $(kubectl get services | egrep "$INSTANCE_NAME-rec|$INSTANCE_NAME-prod") ]]; then
+PROD_BALANCER_CONFIG=../configs/$INSTANCE_NAME/prod-balancer.yaml
+PROD_CONFIG=../configs/$INSTANCE_NAME/prod-deployment.yaml
+PROD_DOMAIN=${INSTANCE_NAME}-prod.${DOMAIN}
+
+if [[ -z $(follow-gt get services | egrep "$INSTANCE_NAME-rec|$INSTANCE_NAME-prod") ]]; then
     echo ""
     echo "  Creating load balancers for \"$INSTANCE_NAME-rec\" and \"$INSTANCE_NAME-prod\""
     cp balancer.yaml $REC_BALANCER_CONFIG
     sed -i "s|VAR:INSTANCE_NAME|$INSTANCE_NAME-rec|g"     $REC_BALANCER_CONFIG
-    kubectl apply -f $REC_BALANCER_CONFIG
+    follow-gt apply -f $REC_BALANCER_CONFIG
 
     cp balancer.yaml $PROD_BALANCER_CONFIG
     sed -i "s|VAR:INSTANCE_NAME|$INSTANCE_NAME-prod|g"    $PROD_BALANCER_CONFIG
-    kubectl apply -f $PROD_BALANCER_CONFIG
+    follow-gt apply -f $PROD_BALANCER_CONFIG
 
     echo ""
     echo "  Waiting for load balancers to get their IP assigned"
-    while [[ ! $(kubectl get services | grep $INSTANCE_NAME-rec | tr -s ' ' | cut -d ' ' -f 4) =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; do
+    while [[ ! $(follow-gt get services | grep $INSTANCE_NAME-rec | tr -s ' ' | cut -d ' ' -f 4) =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; do
         sleep 2
     done
 
-    while [[ ! $(kubectl get services | grep $INSTANCE_NAME-prod | tr -s ' ' | cut -d ' ' -f 4) =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; do
+    while [[ ! $(follow-gt get services | grep $INSTANCE_NAME-prod | tr -s ' ' | cut -d ' ' -f 4) =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; do
         sleep 2
     done
     
+    REC_IP=$(follow-gt get services | grep $INSTANCE_NAME-rec | tr -s ' ' | cut -d ' ' -f 4)
+    PROD_IP=$(follow-gt get services | grep $INSTANCE_NAME-prod | tr -s ' ' | cut -d ' ' -f 4)
+
     echo ""
+    echo "Create the following two domains and press enter when done"
+    echo -e "    $REC_DOMAIN\t with target\t $REC_IP"
+    echo -e "    $PROD_DOMAIN\t with target\t $PROD_IP"
+    read
 else
     echo ""
     echo "  Keeping existing load balancers"
     echo ""
 fi
-
-REC_CONFIG=../instances/$INSTANCE_NAME/rec-deployment.yaml
-REC_DOMAIN=${INSTANCE_NAME}-rec.${DOMAIN}
-REC_IP=$(kubectl get services | grep $INSTANCE_NAME-rec | tr -s ' ' | cut -d ' ' -f 4)
-
-PROD_CONFIG=../instances/$INSTANCE_NAME/prod-deployment.yaml
-PROD_DOMAIN=${INSTANCE_NAME}-prod.${DOMAIN}
-PROD_IP=$(kubectl get services | grep $INSTANCE_NAME-prod | tr -s ' ' | cut -d ' ' -f 4)
-
-echo "Create the following two domains and press enter when done"
-echo -e "    $REC_DOMAIN\t with target\t $REC_IP"
-echo -e "    $PROD_DOMAIN\t with target\t $PROD_IP"
-read
 
 echo "  Creating and deploying \"$INSTANCE_NAME-rec\""
 cp deployment.yaml $REC_CONFIG
@@ -126,7 +131,7 @@ sed -i "s|VAR:URL|https://${REC_DOMAIN}|g"            $REC_CONFIG
 sed -i "s|VAR:LOGGER|${LOGGER_URL}|g"                 $REC_CONFIG
 sed -i "s|VAR:FORBIDDEN_PHONES|${FORBIDDEN_PHONES}|g" $REC_CONFIG
 sed -i "s|VAR:DASHBOARD_TOKEN|${DASHBOARD_TOKEN}|g"   $REC_CONFIG
-kubectl apply -f $REC_CONFIG
+follow-gt apply -f $REC_CONFIG
 
 echo ""
 echo "  Creating and deploying \"$INSTANCE_NAME-prod\""
@@ -149,4 +154,4 @@ sed -i "s|VAR:URL|https://${PROD_DOMAIN}|g"           $PROD_CONFIG
 sed -i "s|VAR:LOGGER|${LOGGER_URL}|g"                 $PROD_CONFIG
 sed -i "s|VAR:FORBIDDEN_PHONES|${FORBIDDEN_PHONES}|g" $PROD_CONFIG
 sed -i "s|VAR:DASHBOARD_TOKEN|${DASHBOARD_TOKEN}|g"   $PROD_CONFIG
-kubectl apply -f $PROD_CONFIG
+follow-gt apply -f $PROD_CONFIG
