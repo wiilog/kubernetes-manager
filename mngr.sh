@@ -3,19 +3,23 @@
 PROGRAM_NAME=$(basename $0)
 COMMAND=$1
 
-activate_maintenance() {
+function wiistock() {
+    kubectl --namespace=wiistock "@a"
+}
+
+function activate_maintenance() {
     local INSTANCE=$1
-    local PODS=$(follow-gt get pods | grep "$INSTANCE-deployment" | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
+    local PODS=$(wiistock get pods | grep "$INSTANCE" | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
     local PODS_COUNT=$(echo $PODS | wc -w)
 
     echo "Rolling $PODS_COUNT pods to maintainance mode"
     
     for POD in $PODS; do
-        follow-gt exec -it $POD -- sh /bootstrap/maintenance.sh
+        wiistock exec -it $POD -- sh /bootstrap/maintenance.sh
     done
 }
   
-create_instance() {
+function create_instance() {
     if [ "$#" -ne 2 ]; then
         echo "Illegal number of arguments, expected 2, found $#"
         exit 101
@@ -44,7 +48,7 @@ create_instance() {
     (cd $TEMPLATE; ./setup.sh $NAME)
 }
   
-deploy() {
+function deploy() {
     if [[ $# -lt 1 || $# -gt 2 ]]; then
         echo "Illegal number of arguments, expected between 1 and 2, found $#"
         exit 201
@@ -56,7 +60,7 @@ deploy() {
     # If no environment is specified, update all environments
     if [ -z "$ENVIRONMENT" ]; then
         # Check if deployment exists
-        local PODS=$(follow-gt get deployments | grep "$NAME-.*-deployment")
+        local PODS=$(wiistock get deployments | grep "$NAME-.*")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\""
             exit 202
@@ -66,15 +70,15 @@ deploy() {
 
         for INSTANCE_FILE in $(find configs/$NAME -name "*-deployment.yaml" -type f); do
             local DEPLOYMENT=$(echo $INSTANCE_FILE | grep -oP '(?<=configs/).*?(?=\-deployment.yaml)')
-            local DEPLOYMENT="${DEPLOYMENT/\//-}-deployment"
+            local DEPLOYMENT="${DEPLOYMENT/\//-}"
 
-            follow-gt patch deployment $DEPLOYMENT -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
+            wiistock patch deployment $DEPLOYMENT -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
         done
     else
         local INSTANCE=$NAME-$ENVIRONMENT
         
         # Check if deployment exists
-        local PODS=$(follow-gt get deployments | grep "$INSTANCE-deployment")
+        local PODS=$(wiistock get deployments | grep "$INSTANCE")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\" for environment \"$ENVIRONMENT\""
             exit 202
@@ -82,11 +86,14 @@ deploy() {
 
         activate_maintenance $INSTANCE
 
-        follow-gt patch deployment $INSTANCE-deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
+        wiistock patch deployment $INSTANCE -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
     fi
+
+    # Find pods by label
+    # kubectl get pods -l environment=production,tier=frontend
 }
 
-publish() {
+function publish() {
     if [ "$#" -ne 1 ]; then
         echo "Illegal number of arguments, expected 1, found $#"
         exit 401
@@ -101,7 +108,7 @@ publish() {
     done
 }
 
-usage() {
+function usage() {
     echo "Manage and deploy kubernetes instances"
     echo ""
     echo "USAGE:"
@@ -121,13 +128,9 @@ if [ -n "$COMMAND" ]; then
     shift
 fi
 
-if [[ -z $(kubectl get namespaces | grep "follow-gt") ]]; then
-    kubectl create namespace follow-gt > /dev/null
+if [[ -z $(kubectl get namespaces | grep "wiistock") ]]; then
+    kubectl create namespace wiistock > /dev/null
 fi
-
-follow-gt() {
-    kubectl --namespace=follow-gt "@a"
-}
 
 case $COMMAND in
     create-instance)    create_instance "$@" ;;

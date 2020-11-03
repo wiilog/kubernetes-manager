@@ -1,10 +1,12 @@
 FROM wiilog/wiistock:latest
 
-RUN apk add mysql-client
 RUN apk del wkhtmltopdf
-RUN apk del nginx
-RUN apk del php7-fpm
+RUN apk del nginx php7-fpm
 RUN apk del certbot certbot-nginx
+
+RUN apk add git mysql-client
+RUN apk add php7-cli php7-phar
+RUN apk add yarn
 
 # Install composer
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
