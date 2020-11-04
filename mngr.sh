@@ -4,7 +4,7 @@ PROGRAM_NAME=$(basename $0)
 COMMAND=$1
 
 function wiistock() {
-    kubectl --namespace=wiistock "@a"
+    kubectl --namespace=wiistock "$@"
 }
 
 function activate_maintenance() {
@@ -20,7 +20,7 @@ function activate_maintenance() {
 }
   
 function create_instance() {
-    if [ "$#" -ne 2 ]; then
+    if [ $# -ne 2 ]; then
         echo "Illegal number of arguments, expected 2, found $#"
         exit 101
     fi
@@ -44,8 +44,7 @@ function create_instance() {
         fi
     fi
 
-    chmod +x $TEMPLATE/setup.sh
-    (cd $TEMPLATE; ./setup.sh $NAME)
+    (cd $TEMPLATE; bash setup.sh $NAME)
 }
   
 function deploy() {
@@ -57,23 +56,16 @@ function deploy() {
     local NAME=$1
     local ENVIRONMENT=$2
 
-    # If no environment is specified, update all environments
     if [ -z "$ENVIRONMENT" ]; then
         # Check if deployment exists
-        local PODS=$(wiistock get deployments | grep "$NAME-.*")
+        local PODS=$(wiistock get deployments | grep "$NAME*")
         if [ -z "$PODS" ]; then
             echo "Unknown instance \"$NAME\""
             exit 202
         fi
 
-        activate_maintenance "$NAME-.*"
-
-        for INSTANCE_FILE in $(find configs/$NAME -name "*-deployment.yaml" -type f); do
-            local DEPLOYMENT=$(echo $INSTANCE_FILE | grep -oP '(?<=configs/).*?(?=\-deployment.yaml)')
-            local DEPLOYMENT="${DEPLOYMENT/\//-}"
-
-            wiistock patch deployment $DEPLOYMENT -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
-        done
+        activate_maintenance $NAME
+        wiistock patch deployment $NAME -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": { \"redeploy\": \"$(date +%s)\"}}}}}"
     else
         local INSTANCE=$NAME-$ENVIRONMENT
         
@@ -85,7 +77,6 @@ function deploy() {
         fi
 
         activate_maintenance $INSTANCE
-
         wiistock patch deployment $INSTANCE -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
     fi
 
@@ -93,19 +84,37 @@ function deploy() {
     # kubectl get pods -l environment=production,tier=frontend
 }
 
-function publish() {
-    if [ "$#" -ne 1 ]; then
-        echo "Illegal number of arguments, expected 1, found $#"
-        exit 401
+function delete() {
+    if [[ $# -ne 2 ]]; then
+        echo "Illegal number of arguments, expected 2, found $#"
+        exit 201
     fi
 
+    local TEMPLATE=$1
+    local NAME=$2
+
+    local PODS=$(wiistock get deployments | grep "$INSTANCE")
+    if [ -z "$PODS" ]; then
+        echo "Unknown instance \"$NAME\""
+        exit 202
+    fi
+
+    (cd $TEMPLATE; bash delete.sh $NAME)
+}
+
+function publish() {
     local NAME=$1
 
-    # Build and push all images in the `images` folder of the instance
-    for IMAGE in $(ls $NAME/images); do
-        docker build -t wiilog/$IMAGE:latest $NAME/images/$IMAGE
-        docker push wiilog/$IMAGE:latest
-    done
+    if [ -n "$NAME" ]; then
+        docker build -t wiilog/$NAME:latest images/$NAME
+        docker push wiilog/$NAME:latest
+    else
+        # Build and push all images in the `images` folder
+        for IMAGE in $(ls images); do
+            docker build -t wiilog/$IMAGE:latest images/$IMAGE
+            docker push wiilog/$IMAGE:latest
+        done
+    fi
 }
 
 function usage() {
@@ -118,7 +127,7 @@ function usage() {
     echo "    create-instance <template> <name>    Create an instance"
     echo "    deploy <name> [environment]          Deploys the given instances for the selected environment"
     echo "                                         or all environments if not specified"
-    echo "    delete <name>                        Deletes a deployment"
+    echo "    delete <template> <name>             Deletes a deployment"
     echo "    publish <name>                       Builds and pushes the docker image"
     echo ""
     exit 0

@@ -1,8 +1,6 @@
 #!/bin/sh
 
-echo "Starting nginx and fpm daemons"
-php-fpm7
-nginx
+sleep 5
 
 echo "Creating certificate"
 certbot --nginx \
@@ -12,4 +10,4 @@ certbot --nginx \
     --domains $DOMAIN \
     --non-interactive 
 
-sleep infinity
+exit 0

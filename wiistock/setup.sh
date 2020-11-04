@@ -13,7 +13,7 @@ declare -A DATABASE
 DATABASE[host]=cb249510-001.dbaas.ovh.net
 DATABASE[port]=35403
 DATABASE[user]=$INSTANCE_NAME
-DATABASE[pass]=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
+DATABASE[pass]=$(openssl rand -base64 16 | tr --delete =/+)
 
 function wiistock() {
     kubectl --namespace=wiistock "$@"
@@ -49,26 +49,19 @@ function request_volumes_creation() {
     local NAME=$1
 
     echo ""
-    echo "Create the following 20GO partitions on OVH panel, allow access from the"
+    echo "Create the following partitions on OVH panel, allow access from the"
     echo "following 3 IPs and press enter when OVH is done creating them"
 
     shift
     for ENVIRONMENT in $@; do
-        echo -e "    $NAME$ENVIRONMENT\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
+        if [ $ENVIRONMENT == "prod" ]; then
+            echo -e "    $NAME$ENVIRONMENT\t(25GO)\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
+        else
+            echo -e "    $NAME$ENVIRONMENT\t(10GO)\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
+        fi
     done
 
     read
-}
-
-function clear_instance() {
-    local NAME=$1
-    local ENVIRONMENT=$2
-
-    wiistock delete deployment $NAME-$ENVIRONMENT                  2> /dev/null
-    wiistock delete pvc $NAME-$ENVIRONMENT-letsencrypt             2> /dev/null
-    wiistock delete pvc $NAME-$ENVIRONMENT-uploads                 2> /dev/null
-    wiistock delete pv wiistock-$NAME-$ENVIRONMENT-letsencrypt-pv  2> /dev/null
-    wiistock delete pv wiistock-$NAME-$ENVIRONMENT-uploads-pv      2> /dev/null
 }
 
 function create_load_balancer() {
@@ -109,6 +102,17 @@ function print_load_balancers() {
     read
 }
 
+function clear_instance() {
+    local NAME=$1
+    local ENVIRONMENT=$2
+
+    wiistock delete deployment $NAME-$ENVIRONMENT                  2> /dev/null
+    wiistock delete pvc $NAME-$ENVIRONMENT-letsencrypt             2> /dev/null
+    wiistock delete pvc $NAME-$ENVIRONMENT-uploads                 2> /dev/null
+    wiistock delete pv wiistock-$NAME-$ENVIRONMENT-letsencrypt-pv  2> /dev/null
+    wiistock delete pv wiistock-$NAME-$ENVIRONMENT-uploads-pv      2> /dev/null
+}
+
 function create_deployment() {
     local NAME=${1}
     local ENVIRONMENT=${2}
@@ -120,8 +124,8 @@ function create_deployment() {
     local CONFIG=../configs/$NAME/$ENVIRONMENT-deployment.yaml
     local BRANCH="${BRANCH_PREFIXES[$ENVIRONMENT]}-$BRANCH_SUFFIX"
     local FULL_DOMAIN=$NAME-$ENVIRONMENT.$DOMAIN
-    local DASHBOARD_TOKEN=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
-    local SECRET=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+    local DASHBOARD_TOKEN=$(openssl rand -base64 32 | tr --delete =/)
+    local SECRET=$(openssl rand -base64 8 | tr --delete =/)
     local LOGGER_URL="https://logs.$DOMAIN"
 
     cp deployment.yaml $CONFIG
@@ -149,13 +153,15 @@ request_configuration
 request_databases_creation $INSTANCE_NAME "prod" "rec"
 request_volumes_creation $INSTANCE_NAME "prod" "rec"
 
-clear_instance $INSTANCE_NAME "rec"  &
-clear_instance $INSTANCE_NAME "prod" &
 create_load_balancer $INSTANCE_NAME $DOMAIN "rec"  &
 create_load_balancer $INSTANCE_NAME $DOMAIN "prod" &
 wait
 
 print_load_balancers $INSTANCE_NAME $DOMAIN "rec" "prod"
+
+clear_instance $INSTANCE_NAME "rec"  &
+clear_instance $INSTANCE_NAME "prod" &
+wait
 
 create_deployment $INSTANCE_NAME "rec" 1 \
     $DOMAIN \

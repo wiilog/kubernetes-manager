@@ -99,7 +99,8 @@ spec:
         - mountPath: /project
           name: VAR:INSTANCE_NAME-project
       - name: initializer
-        image: wiilog/wiistock-initializer:latest
+        image: wiilog/symfony-initializer:latest
+        command: ["/bootstrap/entrypoint.sh"]
         env:
         - name: DATABASE_HOST
           value: "VAR:DATABASE_HOST"
@@ -126,13 +127,31 @@ spec:
         volumeMounts:
         - mountPath: /project
           name: VAR:INSTANCE_NAME-project
+        - mountPath: /project/var
+          name: VAR:INSTANCE_NAME-cache
       containers:
       - name: wiistock
+        image: wiilog/symfony:latest
         command: ["/bootstrap/entrypoint.sh"]
-        image: wiilog/wiistock:latest
         ports:
         - containerPort: 80
         - containerPort: 443
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 1
+          periodSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "/bootstrap/certificate.sh"]
         env:
         - name: DOMAIN
           value: "VAR:DOMAIN"
@@ -165,5 +184,5 @@ spec:
           name: VAR:INSTANCE_NAME-project
         - mountPath: /project/public/uploads
           name: VAR:INSTANCE_NAME-uploads
-        - mountPath: /project/var/
+        - mountPath: /project/var
           name: VAR:INSTANCE_NAME-cache

@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: wiistock-VAR:INSTANCE_NAME-letsencrypt-pv
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: wiistock-VAR:INSTANCE_NAME-nfs
+  mountOptions:
+    - tcp
+    - nfsvers=3
+  nfs:
+    path: /zpool-127780/VAR:PARTITION_NAME
+    server: 10.16.103.99
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: VAR:INSTANCE_NAME-letsencrypt
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: wiistock-VAR:INSTANCE_NAME-nfs
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: VAR:INSTANCE_NAME
+  labels:
+    app: VAR:INSTANCE_NAME
+spec:
+  replicas: VAR:REPLICAS_COUNT
+  selector:
+    matchLabels:
+      app: VAR:INSTANCE_NAME
+  template:
+    metadata:
+      labels:
+        app: VAR:INSTANCE_NAME
+    spec:
+      volumes:
+      - name: VAR:INSTANCE_NAME-letsencrypt
+        persistentVolumeClaim:
+          claimName: VAR:INSTANCE_NAME-letsencrypt
+      - name: VAR:INSTANCE_NAME-project
+        emptyDir: {}
+      - name: VAR:INSTANCE_NAME-cache
+        emptyDir: {}
+      initContainers:
+      - name: cloner
+        image: alpine/git
+        args: ["clone", "--branch=VAR:BRANCH", "--single-branch", "VAR:REPOSITORY", "/project"]
+        volumeMounts:
+        - mountPath: /project
+          name: VAR:INSTANCE_NAME-project
+      - name: initializer
+        image: wiilog/symfony-initializer:latest
+        command: ["/bootstrap/entrypoint.sh"]
+        env:
+        - name: DATABASE_URL
+          value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
+        - name: APP_ENV
+          value: "VAR:ENV"
+        VAR:NAME_1
+        VAR:VALUE_1
+        VAR:NAME_2
+        VAR:VALUE_2
+        VAR:NAME_3
+        VAR:VALUE_3
+        VAR:NAME_4
+        VAR:VALUE_4
+        VAR:NAME_5
+        VAR:VALUE_5
+        volumeMounts:
+        - mountPath: /project
+          name: VAR:INSTANCE_NAME-project
+        - mountPath: /project/var
+          name: VAR:INSTANCE_NAME-cache
+      containers:
+      - name: VAR:INSTANCE_NAME
+        image: wiilog/symfony:latest
+        command: ["/bootstrap/entrypoint.sh"]
+        env:
+        - name: DATABASE_URL
+          value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
+        - name: APP_ENV
+          value: "VAR:ENV"
+        - name: APP_SECRET
+          value: "VAR:SECRET"
+        VAR:NAME_1
+        VAR:VALUE_1
+        VAR:NAME_2
+        VAR:VALUE_2
+        VAR:NAME_3
+        VAR:VALUE_3
+        VAR:NAME_4
+        VAR:VALUE_4
+        VAR:NAME_5
+        VAR:VALUE_5
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        volumeMounts:
+        - mountPath: /etc/letsencrypt
+          name: VAR:INSTANCE_NAME-letsencrypt
+        - mountPath: /project
+          name: VAR:INSTANCE_NAME-project
+        - mountPath: /project/var
+          name: VAR:INSTANCE_NAME-cache
