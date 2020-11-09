@@ -66,6 +66,16 @@ spec:
         image: wiilog/symfony-initializer:latest
         command: ["/bootstrap/entrypoint.sh"]
         env:
+        - name: DATABASE_HOST
+          value: "VAR:DATABASE_HOST"
+        - name: DATABASE_PORT
+          value: "VAR:DATABASE_PORT"
+        - name: DATABASE_USER
+          value: "VAR:DATABASE_USER"
+        - name: DATABASE_PASSWORD
+          value: "VAR:DATABASE_PASS"
+        - name: DATABASE_NAME
+          value: "VAR:DATABASE_NAME"
         - name: DATABASE_URL
           value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
         - name: APP_ENV
@@ -90,6 +100,8 @@ spec:
         image: wiilog/symfony:latest
         command: ["/bootstrap/entrypoint.sh"]
         env:
+        - name: DOMAIN
+          value: "VAR:DOMAIN"
         - name: DATABASE_URL
           value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
         - name: APP_ENV

@@ -102,6 +102,8 @@ function delete() {
         exit 202
     fi
 
+    #TODO: delete using `kubectl delete -f file.yaml`
+    
     (cd $TEMPLATE; bash delete.sh $NAME)
 }
 

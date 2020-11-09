@@ -24,10 +24,8 @@ function request_configuration() {
     read -p "Branch:           " BRANCH
     echo ""
 
-    echo "  Additional environment variables, leave name empty to stop"
-    
     for NUMBER in {1..5}; do
-        echo "Variable $NUMBER"
+        echo "Variable $NUMBER (leave empty to stop)"
         read -p "Name:  " EXTRA_NAME
         if [ -z $EXTRA_NAME ]; then
             echo ""
@@ -101,15 +99,18 @@ function clear_instance() {
 function create_deployment() {
     local NAME=${1}
     local REPLICAS_COUNT=${2}
-    local REPOSITORY=${3}
-    local BRANCH=${4}
+    local DOMAIN=${3}
+    local REPOSITORY=${4}
+    local BRANCH=${5}
     
     local CONFIG=../configs/$NAME/$NAME-deployment.yaml
+    local FULL_DOMAIN=$NAME.$DOMAIN
     local SECRET=$(openssl rand -base64 8 | tr --delete =/)
     
     cp kubernetes/deployment.yaml $CONFIG
     sed -i "s|VAR:INSTANCE_NAME|$NAME|g"              $CONFIG
     sed -i "s|VAR:REPLICAS_COUNT|$REPLICAS_COUNT|g"   $CONFIG
+    sed -i "s|VAR:DOMAIN|$FULL_DOMAIN|g"              $CONFIG
     sed -i "s|VAR:REPOSITORY|$REPOSITORY|g"           $CONFIG
     sed -i "s|VAR:BRANCH|$BRANCH|g"                   $CONFIG
     sed -i "s|VAR:PARTITION_NAME|$NAME|g"             $CONFIG
@@ -140,4 +141,4 @@ request_volume_creation $INSTANCE_NAME
 create_load_balancer $INSTANCE_NAME $DOMAIN
 
 clear_instance $INSTANCE_NAME
-create_deployment $INSTANCE_NAME $REPLICAS_COUNT $REPOSITORY $BRANCH
+create_deployment $INSTANCE_NAME $REPLICAS_COUNT $DOMAIN $REPOSITORY $BRANCH

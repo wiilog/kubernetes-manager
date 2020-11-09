@@ -1,3 +1,4 @@
+FROM surnet/alpine-wkhtmltopdf:3.12-0.12.6-full as wkhtmltopdf
 FROM alpine:edge
 
 # Switch to edge repositories for PHP 7.4
@@ -13,7 +14,7 @@ RUN echo "Europe/Paris" >  /etc/timezone
 RUN apk del tzdata
 
 # Dependencies
-RUN apk add curl wkhtmltopdf
+RUN apk add curl
 
 # Install web server
 RUN apk add php7
@@ -36,3 +37,28 @@ ADD resources/nginx/default.conf    /etc/nginx/conf.d
 
 # Nginx
 RUN mkdir /run/nginx
+
+# WKHTMLToPDF (copied from https://github.com/Surnet/docker-wkhtmltopdf)
+RUN apk add --no-cache \
+    libstdc++ \
+    libx11 \
+    libxrender \
+    libxext \
+    libssl1.1 \
+    ca-certificates \
+    fontconfig \
+    freetype \
+    ttf-dejavu \
+    ttf-droid \
+    ttf-freefont \
+    ttf-liberation \
+    ttf-ubuntu-font-family \
+    && apk add --no-cache --virtual .build-deps \
+    msttcorefonts-installer \
+    && update-ms-fonts \
+    && fc-cache -f \
+    && rm -rf /tmp/* \
+    && apk del .build-deps
+
+# Copy wkhtmltopdf files from docker-wkhtmltopdf image
+COPY --from=wkhtmltopdf /bin/wkhtmltopdf /usr/bin/wkhtmltopdf

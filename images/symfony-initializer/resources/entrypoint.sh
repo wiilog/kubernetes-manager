@@ -58,8 +58,8 @@ fi
 
 if has_option "--with-fixtures"; then
     php bin/console doctrine:fixtures:load --append --group fixtures
+    php bin/console app:update:translations
 fi
 
-php bin/console app:update:translations
 php bin/console cache:clear
 php bin/console cache:warmup
