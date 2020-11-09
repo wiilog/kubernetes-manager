@@ -27,6 +27,7 @@ function create_instance() {
 
     local TEMPLATE=$1
     local NAME=$2
+    shift 2
 
     # Check if template exists
     if [ ! -d "./$TEMPLATE" ]; then
@@ -44,7 +45,10 @@ function create_instance() {
         fi
     fi
 
-    (cd $TEMPLATE; bash setup.sh $NAME)
+    mkdir -p configs/$NAME
+    echo $TEMPLATE > configs/$NAME/template
+
+    (cd $TEMPLATE; bash setup.sh $NAME $@)
 }
   
 function deploy() {
@@ -85,16 +89,15 @@ function deploy() {
 }
 
 function delete() {
-    if [[ $# -ne 2 ]]; then
-        echo "Illegal number of arguments, expected 2, found $#"
+    if [[ $# -ne 1 ]]; then
+        echo "Illegal number of arguments, expected 1, found $#"
         exit 201
     fi
 
-    local TEMPLATE=$1
-    local NAME=$2
+    local NAME=$1
+    local TEMPLATE=$(cat configs/$NAME/template 2> /dev/null)
 
-    local PODS=$(wiistock get deployments | grep "$INSTANCE")
-    if [ -z "$PODS" ]; then
+    if [ -z "$TEMPLATE" ]; then
         echo "Unknown instance \"$NAME\""
         exit 202
     fi
@@ -127,7 +130,7 @@ function usage() {
     echo "    create-instance <template> <name>    Create an instance"
     echo "    deploy <name> [environment]          Deploys the given instances for the selected environment"
     echo "                                         or all environments if not specified"
-    echo "    delete <template> <name>             Deletes a deployment"
+    echo "    delete <name>                        Deletes a deployment"
     echo "    publish <name>                       Builds and pushes the docker image"
     echo ""
     exit 0

@@ -1,7 +1,6 @@
 #!/bin/bash
 
 INSTANCE_NAME=$1
-mkdir -p ../configs/$INSTANCE_NAME
 
 declare -A DATABASE
 DATABASE[host]=cb249510-001.dbaas.ovh.net
@@ -70,7 +69,7 @@ function create_load_balancer() {
 
     if [[ -z $(wiistock get services | grep $INSTANCE_NAME) ]]; then
         local BALANCER_CONFIG=../configs/$NAME/$NAME-balancer.yaml
-        cp balancer.yaml $BALANCER_CONFIG
+        cp kubernetes/balancer.yaml $BALANCER_CONFIG
         sed -i "s|VAR:INSTANCE_NAME|$NAME|g" $BALANCER_CONFIG
         wiistock apply -f $BALANCER_CONFIG
     fi
@@ -108,7 +107,7 @@ function create_deployment() {
     local CONFIG=../configs/$NAME/$NAME-deployment.yaml
     local SECRET=$(openssl rand -base64 8 | tr --delete =/)
     
-    cp deployment.yaml $CONFIG
+    cp kubernetes/deployment.yaml $CONFIG
     sed -i "s|VAR:INSTANCE_NAME|$NAME|g"              $CONFIG
     sed -i "s|VAR:REPLICAS_COUNT|$REPLICAS_COUNT|g"   $CONFIG
     sed -i "s|VAR:REPOSITORY|$REPOSITORY|g"           $CONFIG

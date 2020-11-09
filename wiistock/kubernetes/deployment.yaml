@@ -4,7 +4,7 @@ metadata:
   name: wiistock-VAR:INSTANCE_NAME-uploads-pv
 spec:
   capacity:
-    storage: 24Gi
+    storage: VAR:UPLOADS_STORAGEGi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
@@ -48,7 +48,7 @@ spec:
   storageClassName: wiistock-VAR:INSTANCE_NAME-nfs
   resources:
     requests:
-      storage: 24Gi
+      storage: VAR:UPLOADS_STORAGEGi
 
 ---
 kind: PersistentVolumeClaim
@@ -100,7 +100,7 @@ spec:
           name: VAR:INSTANCE_NAME-project
       - name: initializer
         image: wiilog/symfony-initializer:latest
-        command: ["/bootstrap/entrypoint.sh"]
+        command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures"]
         env:
         - name: DATABASE_HOST
           value: "VAR:DATABASE_HOST"
@@ -136,22 +136,6 @@ spec:
         ports:
         - containerPort: 80
         - containerPort: 443
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 1
-          periodSeconds: 1
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 3
-          periodSeconds: 3
-        lifecycle:
-          postStart:
-            exec:
-              command: ["/bin/sh", "/bootstrap/certificate.sh"]
         env:
         - name: DOMAIN
           value: "VAR:DOMAIN"

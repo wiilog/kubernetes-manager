@@ -3,16 +3,23 @@
 declare -A BRANCH_PREFIXES
 BRANCH_PREFIXES[prod]="master"
 BRANCH_PREFIXES[rec]="recette"
-BRANCH_PREFIXES[qa]="recette"
 BRANCH_PREFIXES[dev]="dev"
 
-INSTANCE_NAME=$1
-mkdir -p ../configs/$INSTANCE_NAME
+declare -A STORAGE_SIZES
+STORAGE_SIZES[prod]=25
+STORAGE_SIZES[rec]=10
+STORAGE_SIZES[dev]=10
+
+NAME=$1; shift
+ENVIRONMENTS=$@
+if [ -z "$ENVIRONMENTS" ]; then
+    ENVIRONMENTS=("rec" "prod")
+fi
 
 declare -A DATABASE
 DATABASE[host]=cb249510-001.dbaas.ovh.net
 DATABASE[port]=35403
-DATABASE[user]=$INSTANCE_NAME
+DATABASE[user]=$NAME
 DATABASE[pass]=$(openssl rand -base64 16 | tr --delete =/+)
 
 function wiistock() {
@@ -54,11 +61,7 @@ function request_volumes_creation() {
 
     shift
     for ENVIRONMENT in $@; do
-        if [ $ENVIRONMENT == "prod" ]; then
-            echo -e "    $NAME$ENVIRONMENT\t(25GO)\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
-        else
-            echo -e "    $NAME$ENVIRONMENT\t(10GO)\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
-        fi
+        echo -e "    $NAME$ENVIRONMENT\t(${STORAGE_SIZES[$ENVIRONMENT]}GO)\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
     done
 
     read
@@ -67,14 +70,16 @@ function request_volumes_creation() {
 function create_load_balancer() {
     local NAME=$1
     local DOMAIN=$2
-    local ENVIRONMENT=$3
+    shift 2
 
-    if [[ -z $(wiistock get services | grep "$INSTANCE_NAME-$ENVIRONMENT") ]]; then
-        local BALANCER_CONFIG=../configs/$NAME/$ENVIRONMENT-balancer.yaml
-        cp balancer.yaml $BALANCER_CONFIG
-        sed -i "s|VAR:INSTANCE_NAME|$INSTANCE_NAME-$ENVIRONMENT|g" $BALANCER_CONFIG
-        wiistock apply -f $BALANCER_CONFIG
-    fi
+    for ENVIRONMENT in $@; do
+        if [[ -z $(wiistock get services | grep "$NAME-$ENVIRONMENT") ]]; then
+            local BALANCER_CONFIG=../configs/$NAME/$ENVIRONMENT-balancer.yaml
+            cp kubernetes/balancer.yaml $BALANCER_CONFIG
+            sed -i "s|VAR:INSTANCE_NAME|$NAME-$ENVIRONMENT|g" $BALANCER_CONFIG
+            wiistock apply -f $BALANCER_CONFIG
+        fi
+    done
 }
 
 function print_load_balancers() {
@@ -124,15 +129,17 @@ function create_deployment() {
     local CONFIG=../configs/$NAME/$ENVIRONMENT-deployment.yaml
     local BRANCH="${BRANCH_PREFIXES[$ENVIRONMENT]}-$BRANCH_SUFFIX"
     local FULL_DOMAIN=$NAME-$ENVIRONMENT.$DOMAIN
+    local STORAGE_SIZE=$(expr ${STORAGE_SIZES[$ENVIRONMENT]} - 1)
     local DASHBOARD_TOKEN=$(openssl rand -base64 32 | tr --delete =/)
     local SECRET=$(openssl rand -base64 8 | tr --delete =/)
     local LOGGER_URL="https://logs.$DOMAIN"
 
-    cp deployment.yaml $CONFIG
+    cp kubernetes/deployment.yaml $CONFIG
     sed -i "s|VAR:INSTANCE_NAME|$NAME-$ENVIRONMENT|g"   $CONFIG
     sed -i "s|VAR:REPLICAS_COUNT|$REPLICAS_COUNT|g"     $CONFIG
     sed -i "s|VAR:BRANCH|$BRANCH|g"                     $CONFIG
     sed -i "s|VAR:PARTITION_NAME|$NAME$ENVIRONMENT|g"   $CONFIG
+    sed -i "s|VAR:UPLOADS_STORAGE|$STORAGE_SIZE|g"      $CONFIG
     sed -i "s|VAR:DOMAIN|$FULL_DOMAIN|g"                $CONFIG
     sed -i "s|VAR:DATABASE_HOST|${DATABASE[host]}|g"    $CONFIG
     sed -i "s|VAR:DATABASE_PORT|${DATABASE[port]}|g"    $CONFIG
@@ -150,27 +157,27 @@ function create_deployment() {
 }
 
 request_configuration
-request_databases_creation $INSTANCE_NAME "prod" "rec"
-request_volumes_creation $INSTANCE_NAME "prod" "rec"
+request_databases_creation $NAME ${ENVIRONMENTS[@]}
+request_volumes_creation $NAME ${ENVIRONMENTS[@]}
 
-create_load_balancer $INSTANCE_NAME $DOMAIN "rec"  &
-create_load_balancer $INSTANCE_NAME $DOMAIN "prod" &
+create_load_balancer $NAME $DOMAIN ${ENVIRONMENTS[@]}
+print_load_balancers $NAME $DOMAIN ${ENVIRONMENTS[@]}
+
+for ENVIRONMENT in  ${ENVIRONMENTS[@]}; do
+    clear_instance $NAME $ENVIRONMENT &
+done
 wait
 
-print_load_balancers $INSTANCE_NAME $DOMAIN "rec" "prod"
+for ENVIRONMENT in  ${ENVIRONMENTS[@]}; do
+    if [ $ENVIRONMENT == "prod" ]; then
+        REPLICAS_FOR_ENV=$REPLICAS_COUNT
+    else
+        REPLICAS_FOR_ENV=1
+    fi
 
-clear_instance $INSTANCE_NAME "rec"  &
-clear_instance $INSTANCE_NAME "prod" &
-wait
-
-create_deployment $INSTANCE_NAME "rec" 1 \
-    $DOMAIN \
-    $BRANCHES_SUFFIX \
-    $CLIENT &
-
-create_deployment $INSTANCE_NAME "prod" $REPLICAS_COUNT \
-    $DOMAIN \
-    $BRANCHES_SUFFIX \
-    $CLIENT &
-
+    create_deployment $NAME $ENVIRONMENT $REPLICAS_FOR_ENV \
+        $DOMAIN \
+        $BRANCHES_SUFFIX \
+        $CLIENT &
+done
 wait
