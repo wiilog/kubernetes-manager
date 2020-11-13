@@ -15,7 +15,7 @@ has_option() {
 
 cd /project
 
-composer install --no-dev --optimize-autoloader
+composer install --no-dev --optimize-autoloader --classmap-authoritative
 touch var/log/prod.log
 
 SQL_HAS_TABLES="SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DATABASE_NAME';"

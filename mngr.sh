@@ -83,9 +83,6 @@ function deploy() {
         activate_maintenance $INSTANCE
         wiistock patch deployment $INSTANCE -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
     fi
-
-    # Find pods by label
-    # kubectl get pods -l environment=production,tier=frontend
 }
 
 function delete() {
@@ -102,23 +99,27 @@ function delete() {
         exit 202
     fi
 
-    #TODO: delete using `kubectl delete -f file.yaml`
+    for DEPLOYMENT in configs/$NAME/*-deployment.yaml; do
+        wiistock delete -f $DEPLOYMENT 2> /dev/null
+    done
     
-    (cd $TEMPLATE; bash delete.sh $NAME)
+    # (cd $TEMPLATE; bash delete.sh $NAME)
 }
 
 function publish() {
-    local NAME=$1
+    local IMAGE=$1
 
-    if [ -n "$NAME" ]; then
-        docker build -t wiilog/$NAME:latest images/$NAME
-        docker push wiilog/$NAME:latest
+    if [ -n "$IMAGE" ]; then
+        echo "Building and pushing wiilog/$IMAGE"
+        docker build -t wiilog/$IMAGE:latest images/$IMAGE > /dev/null
+        docker push wiilog/$IMAGE:latest                   > /dev/null
     else
         # Build and push all images in the `images` folder
-        for IMAGE in $(ls images); do
-            docker build -t wiilog/$IMAGE:latest images/$IMAGE
-            docker push wiilog/$IMAGE:latest
-        done
+        while IFS=$' \t\n\r' read -r IMAGE; do
+            echo "Building and pushing wiilog/$IMAGE"
+            docker build -t wiilog/$IMAGE:latest images/$IMAGE > /dev/null
+            docker push wiilog/$IMAGE:latest                   > /dev/null
+        done < images/order
     fi
 }
 
@@ -130,10 +131,10 @@ function usage() {
     echo ""
     echo "COMMANDS:"
     echo "    create-instance <template> <name>    Create an instance"
-    echo "    deploy <name> [environment]          Deploys the given instances for the selected environment"
+    echo "    deploy <...instances>                Deploys the given instance(s)"
     echo "                                         or all environments if not specified"
-    echo "    delete <name>                        Deletes a deployment"
-    echo "    publish <name>                       Builds and pushes the docker image"
+    echo "    delete <instance>                    Deletes a deployment"
+    echo "    publish <image>                      Builds and pushes the docker image"
     echo ""
     exit 0
 }

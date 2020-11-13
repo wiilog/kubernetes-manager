@@ -1,8 +1,6 @@
-FROM wiilog/wiistock:latest
+FROM wiilog/symfony:latest
 
-RUN apk del wkhtmltopdf
-RUN apk del nginx php7-fpm
-RUN apk del certbot certbot-nginx
+RUN apk del nginx php7-fpm certbot certbot-nginx
 
 RUN apk add git mysql-client
 RUN apk add php7-cli php7-phar

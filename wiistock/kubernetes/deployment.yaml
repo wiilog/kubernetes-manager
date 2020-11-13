@@ -153,8 +153,6 @@ spec:
           value: "VAR:CLIENT"
         - name: APP_URL
           value: "VAR:URL"
-        - name: APP_LOGGER
-          value: "VAR:LOGGER"
         - name: APP_FORBIDDEN_PHONES
           value: "VAR:FORBIDDEN_PHONES"
         - name: APP_DASHBOARD_TOKEN
