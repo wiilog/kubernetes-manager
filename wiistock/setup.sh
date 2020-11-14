@@ -129,7 +129,7 @@ function create_deployment() {
     local CONFIG=../configs/$NAME/$ENVIRONMENT-deployment.yaml
     local BRANCH="${BRANCH_PREFIXES[$ENVIRONMENT]}-$BRANCH_SUFFIX"
     local FULL_DOMAIN=$NAME-$ENVIRONMENT.$DOMAIN
-    local STORAGE_SIZE=$(expr ${STORAGE_SIZES[$ENVIRONMENT]} - 1)
+    local STORAGE_SIZE=$((${STORAGE_SIZES[$ENVIRONMENT]} - 1))
     local DASHBOARD_TOKEN=$(openssl rand -base64 32 | tr --delete =/)
     local SECRET=$(openssl rand -base64 8 | tr --delete =/)
     local LOGGER_URL="https://logs.$DOMAIN"

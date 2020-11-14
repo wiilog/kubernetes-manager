@@ -1,6 +1,7 @@
 #!/bin/bash
 
 PROGRAM_NAME=$(basename $0)
+SCRIPT_DIRECTORY=$(dirname $BASH_SOURCE)
 COMMAND=$1
 
 function wiistock() {
@@ -9,13 +10,14 @@ function wiistock() {
 
 function activate_maintenance() {
     local INSTANCE=$1
-    local PODS=$(wiistock get pods | grep "$INSTANCE" | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
+    local PODS=$(wiistock get pods -l app=$INSTANCE | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
     local PODS_COUNT=$(echo $PODS | wc -w)
 
     echo "Rolling $PODS_COUNT pods to maintainance mode"
     
+    local POD
     for POD in $PODS; do
-        wiistock exec -it $POD -- sh /bootstrap/maintenance.sh
+        wiistock exec $POD -- /bootstrap/maintenance.sh
     done
 }
   
@@ -67,9 +69,37 @@ function deploy() {
             echo "Unknown instance \"$NAME\""
             exit 202
         fi
+        
+        if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
+            echo "An instance is already being deployed"
+            exit 203
+        fi
 
-        activate_maintenance $NAME
-        wiistock patch deployment $NAME -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": { \"redeploy\": \"$(date +%s)\"}}}}}"
+        echo "Updating deployment $NAME"
+        wiistock patch deployment $NAME -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": { \"redeploy\": \"$(date +%s)\"}}}}}" > /dev/null
+       
+        # Wait for the pod to start initializing and get its name
+        while [[ -z $(wiistock get pods -l app=$NAME | grep "Init:1/2") ]]; do
+            sleep 1
+        done; 
+        
+        local POD=$(wiistock get pods -l app=$NAME | grep "Init:1/2" | tr -s ' ' | cut -d ' ' -f 1)
+        
+        echo "Waiting for pod to reach migrations step"
+     
+        # Wait for the file to be created and get its content
+        while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
+            sleep 1
+        done;
+
+        local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
+
+        if [ $MIGRATIONS -eq 1 ]; then
+            activate_maintenance $NAME
+            wiistock exec $POD -c initializer -- sh -c "echo '1' > /tmp/ready"
+        else
+            echo "No migration detected, proceeding without maintenance"
+        fi
     else
         local INSTANCE=$NAME-$ENVIRONMENT
         
@@ -99,6 +129,7 @@ function delete() {
         exit 202
     fi
 
+    local DEPLOYMENT
     for DEPLOYMENT in configs/$NAME/*-deployment.yaml; do
         wiistock delete -f $DEPLOYMENT 2> /dev/null
     done
@@ -115,6 +146,7 @@ function publish() {
         docker push wiilog/$IMAGE:latest                   > /dev/null
     else
         # Build and push all images in the `images` folder
+        local IMAGE
         while IFS=$' \t\n\r' read -r IMAGE; do
             echo "Building and pushing wiilog/$IMAGE"
             docker build -t wiilog/$IMAGE:latest images/$IMAGE > /dev/null
@@ -147,6 +179,7 @@ if [[ -z $(kubectl get namespaces | grep "wiistock") ]]; then
     kubectl create namespace wiistock > /dev/null
 fi
 
+cd $SCRIPT_DIRECTORY
 case $COMMAND in
     create-instance)    create_instance "$@" ;;
     deploy)             deploy "$@" ;;

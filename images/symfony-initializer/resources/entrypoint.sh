@@ -16,7 +16,10 @@ has_option() {
 cd /project
 
 composer install --no-dev --optimize-autoloader --classmap-authoritative
-touch var/log/prod.log
+php bin/console fos:js-routing:dump
+
+yarn install
+yarn build:only:production
 
 SQL_HAS_TABLES="SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DATABASE_NAME';"
 TABLES_COUNT=$(mysql -h $DATABASE_HOST -P $DATABASE_PORT -u $DATABASE_USER -p$DATABASE_PASSWORD -sse "$SQL_HAS_TABLES")
@@ -34,26 +37,36 @@ elif [ $TABLES_COUNT = "0" ]; then
     else
         php bin/console doctrine:schema:update --force
     fi
-    
-    # Build must be ran after because of custom fonts generation
-    yarn install
-    yarn build
 else
-    yarn install
-    yarn build
-
     echo "Existing instance, updating database"
-    
-    # TODO: dry run and wait
 
     if has_option "--with-migrations"; then
-        php bin/console doctrine:migrations:migrate --no-interaction
-        php bin/console doctrine:schema:update --dump-sql
-        php bin/console doctrine:schema:update --force
-    else
-        php bin/console doctrine:schema:update --dump-sql
-        php bin/console doctrine:schema:update --force
+        touch /tmp/migrations.sql
+        php bin/console doctrine:migrations:migrate --dry-run --write-sql /tmp/migrations.sql
+
+        if [ $(wc -c < /tmp/migrations.sql) -ne 0 ]; then
+            echo "1" > /tmp/migrations
+
+            STARTED_WAITING=$(date +"%s")
+            while [ ! -f /tmp/ready ]; do
+                NOW=$(date +"%s")
+                WAITING_FOR=$(($NOW - $STARTED_WAITING))
+                if [ "$WAITING_FOR" -gt "20" ]; then
+                    echo "No instruction received in 20 seconds, proceeding with installation"
+                    break
+                fi
+
+                sleep 0.1
+            done
+            
+            php bin/console doctrine:migrations:migrate --no-interaction
+        else
+            echo "0" > /tmp/migrations
+        fi
     fi
+
+    php bin/console doctrine:schema:update --dump-sql
+    php bin/console doctrine:schema:update --force
 fi
 
 if has_option "--with-fixtures"; then
@@ -62,4 +75,3 @@ if has_option "--with-fixtures"; then
 fi
 
 php bin/console cache:clear
-php bin/console cache:warmup
