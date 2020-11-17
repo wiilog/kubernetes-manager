@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: wiistock-cache-pv
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: wiistock-cache-nfs
+  mountOptions:
+    - tcp
+    - nfsvers=3
+  nfs:
+    path: /zpool-127780/cache
+    server: 10.16.103.99
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wiistock-cache
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: wiistock-cache-nfs
+  resources:
+    requests:
+      storage: 10Gi
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: wiistock-cache
+spec:
+  restartPolicy: Never
+  volumes:
+  - name: project
+    emptyDir: {}
+  - name: cache
+    persistentVolumeClaim:
+      claimName: wiistock-cache
+  initContainers:
+  - name: cloner
+    image: alpine/git
+    args: ["clone", "--branch=master", "--single-branch", "https://github.com/benoitcostewiilog/WiiStock", "/project"]
+    volumeMounts:
+    - mountPath: /project
+      name: project
+  containers:
+  - name: cache-initializer
+    image: wiilog/cache-initializer:latest
+    command: ["/bootstrap/entrypoint.sh"]
+    volumeMounts:
+    - mountPath: /project
+      name: project
+    - mountPath: /cache
+      name: cache

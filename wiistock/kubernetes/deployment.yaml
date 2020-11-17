@@ -28,7 +28,7 @@ spec:
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: Retain
   storageClassName: wiistock-VAR:INSTANCE_NAME-nfs
   mountOptions:
     - tcp
@@ -38,8 +38,8 @@ spec:
     server: 10.16.103.99
 
 ---
-kind: PersistentVolumeClaim
 apiVersion: v1
+kind: PersistentVolumeClaim
 metadata:
   name: VAR:INSTANCE_NAME-uploads
 spec:
@@ -51,8 +51,8 @@ spec:
       storage: VAR:UPLOADS_STORAGEGi
 
 ---
-kind: PersistentVolumeClaim
 apiVersion: v1
+kind: PersistentVolumeClaim
 metadata:
   name: VAR:INSTANCE_NAME-letsencrypt
 spec:
@@ -81,23 +81,26 @@ spec:
         app: VAR:INSTANCE_NAME
     spec:
       volumes:
-      - name: VAR:INSTANCE_NAME-letsencrypt
+      - name: letsencrypt
         persistentVolumeClaim:
           claimName: VAR:INSTANCE_NAME-letsencrypt
-      - name: VAR:INSTANCE_NAME-project
+      - name: project
         emptyDir: {}
-      - name: VAR:INSTANCE_NAME-uploads
+      - name: uploads
         persistentVolumeClaim:
           claimName: VAR:INSTANCE_NAME-uploads
-      - name: VAR:INSTANCE_NAME-cache
+      - name: symfony-cache
         emptyDir: {}
+      - name: cache
+        persistentVolumeClaim:
+          claimName: wiistock-cache
       initContainers:
       - name: cloner
         image: alpine/git
         args: ["clone", "--branch=VAR:BRANCH", "--single-branch", "https://github.com/benoitcostewiilog/WiiStock", "/project"]
         volumeMounts:
         - mountPath: /project
-          name: VAR:INSTANCE_NAME-project
+          name: project
       - name: initializer
         image: wiilog/symfony-initializer:latest
         command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures"]
@@ -126,9 +129,11 @@ spec:
           value: "VAR:DASHBOARD_TOKEN"
         volumeMounts:
         - mountPath: /project
-          name: VAR:INSTANCE_NAME-project
+          name: project
         - mountPath: /project/var
-          name: VAR:INSTANCE_NAME-cache
+          name: symfony-cache
+        - mountPath: /cache
+          name: cache
       containers:
       - name: wiistock
         image: wiilog/symfony:latest
@@ -161,10 +166,10 @@ spec:
           value: "^https?://VAR:DOMAIN(:[0-9]+)?$"
         volumeMounts:
         - mountPath: /etc/letsencrypt
-          name: VAR:INSTANCE_NAME-letsencrypt
+          name: letsencrypt
         - mountPath: /project
-          name: VAR:INSTANCE_NAME-project
+          name: project
         - mountPath: /project/public/uploads
-          name: VAR:INSTANCE_NAME-uploads
+          name: uploads
         - mountPath: /project/var
-          name: VAR:INSTANCE_NAME-cache
+          name: symfony-cache

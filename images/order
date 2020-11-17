@@ -2,3 +2,4 @@ with-alpine
 with-wkhtmltopdf
 symfony
 symfony-initializer
+cache-initializer

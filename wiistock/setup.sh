@@ -111,6 +111,12 @@ function clear_instance() {
     local NAME=$1
     local ENVIRONMENT=$2
 
+    # Delete the previous instance if it exists
+    if [ -f ../configs/$NAME/$ENVIRONMENT-deployment.yaml ]; then
+        kubectl delete -f ../configs/$NAME/$ENVIRONMENT-deployment.yaml 2> /dev/null
+    fi
+
+    # Delete anything with the same name
     wiistock delete deployment $NAME-$ENVIRONMENT                  2> /dev/null
     wiistock delete pvc $NAME-$ENVIRONMENT-letsencrypt             2> /dev/null
     wiistock delete pvc $NAME-$ENVIRONMENT-uploads                 2> /dev/null

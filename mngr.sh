@@ -100,18 +100,32 @@ function deploy() {
         else
             echo "No migration detected, proceeding without maintenance"
         fi
-    else
-        local INSTANCE=$NAME-$ENVIRONMENT
-        
-        # Check if deployment exists
-        local PODS=$(wiistock get deployments | grep "$INSTANCE")
-        if [ -z "$PODS" ]; then
-            echo "Unknown instance \"$NAME\" for environment \"$ENVIRONMENT\""
-            exit 202
-        fi
+    fi
+}
 
-        activate_maintenance $INSTANCE
-        wiistock patch deployment $INSTANCE -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
+function cache() {
+    if [[ $# -lt 1 || $# -gt 2 ]]; then
+        echo "Illegal number of arguments, expected between 1 and 2, found $#"
+        exit 201
+    fi
+
+    local TEMPLATE=$1
+
+    if [ ! -d "./$TEMPLATE" ]; then
+        echo "Unknown template $TEMPLATE"
+        exit 302
+    fi
+
+    if [ ! -f "./$TEMPLATE/kubernetes/cache.yaml" ]; then
+        echo "Template $TEMPLATE does not have a cache"
+        exit 303
+    fi
+
+    if [ -z "$(wiistock get pods | grep $TEMPLATE-cache)" ]; then
+        wiistock apply -f $TEMPLATE/kubernetes/cache.yaml
+    else
+        wiistock delete pod $TEMPLATE-cache
+        wiistock apply -f $TEMPLATE/kubernetes/cache.yaml
     fi
 }
 
@@ -122,19 +136,11 @@ function delete() {
     fi
 
     local NAME=$1
-    local TEMPLATE=$(cat configs/$NAME/template 2> /dev/null)
-
-    if [ -z "$TEMPLATE" ]; then
-        echo "Unknown instance \"$NAME\""
-        exit 202
-    fi
 
     local DEPLOYMENT
     for DEPLOYMENT in configs/$NAME/*-deployment.yaml; do
         wiistock delete -f $DEPLOYMENT 2> /dev/null
     done
-    
-    # (cd $TEMPLATE; bash delete.sh $NAME)
 }
 
 function publish() {
@@ -165,6 +171,7 @@ function usage() {
     echo "    create-instance <template> <name>    Create an instance"
     echo "    deploy <...instances>                Deploys the given instance(s)"
     echo "                                         or all environments if not specified"
+    echo "    cache <template>                     Creates or updates a template's cache"
     echo "    delete <instance>                    Deletes a deployment"
     echo "    publish <image>                      Builds and pushes the docker image"
     echo ""
@@ -183,6 +190,7 @@ cd $SCRIPT_DIRECTORY
 case $COMMAND in
     create-instance)    create_instance "$@" ;;
     deploy)             deploy "$@" ;;
+    cache)              cache "$@" ;;
     delete)             delete "$@" ;;
     publish)            publish "$@" ;;
     *)                  usage "$@" ;;
