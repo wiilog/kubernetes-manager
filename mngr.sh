@@ -22,8 +22,8 @@ function activate_maintenance() {
 }
   
 function create_instance() {
-    if [ $# -ne 2 ]; then
-        echo "Illegal number of arguments, expected 2, found $#"
+    if [ $# -lt 2 ]; then
+        echo "Illegal number of arguments, expected at least 2, found $#"
         exit 101
     fi
 
@@ -37,69 +37,69 @@ function create_instance() {
         exit 102
     fi
 
-    # Check if instance already exists and ask for confirmation
-    if [ -d "configs/$NAME" ]; then
-        read -p "Instance \"$NAME\" already exists, uploads will be lost and data may get corrupted, continue? " -n 1 -r
-        echo 
-
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 0
-        fi
-    fi
-
-    mkdir -p configs/$NAME
-    echo $TEMPLATE > configs/$NAME/template
-
     (cd $TEMPLATE; bash setup.sh $NAME $@)
 }
   
 function deploy() {
-    if [[ $# -lt 1 || $# -gt 2 ]]; then
-        echo "Illegal number of arguments, expected between 1 and 2, found $#"
+    if [[ $# -ne 1 ]]; then
+        echo "Illegal number of arguments, expected between 1, found $#"
         exit 201
     fi
 
     local NAME=$1
-    local ENVIRONMENT=$2
 
-    if [ -z "$ENVIRONMENT" ]; then
-        # Check if deployment exists
-        local PODS=$(wiistock get deployments | grep "$NAME*")
-        if [ -z "$PODS" ]; then
-            echo "Unknown instance \"$NAME\""
-            exit 202
-        fi
-        
-        if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
-            echo "An instance is already being deployed"
-            exit 203
-        fi
+    # Check if deployment exists
+    local PODS=$(wiistock get deployments | grep "$NAME*")
+    if [ -z "$PODS" ]; then
+        echo "Unknown instance \"$NAME\""
+        exit 202
+    fi
+    
+    if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
+        echo "An instance is already being deployed"
+        exit 203
+    fi
 
-        echo "Updating deployment $NAME"
-        wiistock patch deployment $NAME -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": { \"redeploy\": \"$(date +%s)\"}}}}}" > /dev/null
-       
-        # Wait for the pod to start initializing and get its name
-        while [[ -z $(wiistock get pods -l app=$NAME | grep "Init:1/2") ]]; do
-            sleep 1
-        done; 
-        
-        local POD=$(wiistock get pods -l app=$NAME | grep "Init:1/2" | tr -s ' ' | cut -d ' ' -f 1)
-        
-        echo "Waiting for pod to reach migrations step"
-     
-        # Wait for the file to be created and get its content
-        while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
-            sleep 1
-        done;
+    echo "Starting database backup"
+    DATABASE_NAME=${NAME//-}
+    DATABASE_USER=${NAME%-*}
+    DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
-        local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
+    # Save the database in a detached thread
+    mysqldump $DATABASE_NAME --no-tablespaces \
+        --host="cb249510-001.dbaas.ovh.net" \
+        --user="$DATABASE_USER" \
+        --port=35403 \
+        --password="$DATABASE_PASSWORD" > /root/backups/${NAME}_$(date '+%Y-%m-%d-%k-%M-%s').sql 2> /dev/null &
 
-        if [ $MIGRATIONS -eq 1 ]; then
-            activate_maintenance $NAME
-            wiistock exec $POD -c initializer -- sh -c "echo '1' > /tmp/ready"
-        else
-            echo "No migration detected, proceeding without maintenance"
-        fi
+    echo "Updating deployment $NAME"
+    wiistock patch deployment $NAME -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": { \"redeploy\": \"$(date +%s)\"}}}}}" > /dev/null
+    
+    # Wait for the pod to start initializing and get its name
+    while [[ -z $(wiistock get pods -l app=$NAME | grep "Init:1/2") ]]; do
+        sleep 1
+    done; 
+    
+    local POD=$(wiistock get pods -l app=$NAME | grep "Init:1/2" | tr -s ' ' | cut -d ' ' -f 1)
+    
+    echo "Waiting for pod to reach migrations step"
+    
+    # Wait for the file to be created and get its content
+    while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
+        sleep 1
+    done;
+
+    # Reattach the detached database backup thread
+    wait
+    echo "Finished database backup"
+
+    local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
+
+    if [ "$MIGRATIONS" -eq 1 ]; then
+        activate_maintenance $NAME
+        wiistock exec $POD -c initializer -- sh -c "echo '1' > /tmp/ready"
+    else
+        echo "No migration detected, proceeding without maintenance"
     fi
 }
 
@@ -136,11 +136,23 @@ function delete() {
     fi
 
     local NAME=$1
+ 
+    if [ ! -d configs/$NAME ]; then
+        echo "Unknown instance \"$NAME\""
+        exit 202
+    fi
 
     local DEPLOYMENT
     for DEPLOYMENT in configs/$NAME/*-deployment.yaml; do
         wiistock delete -f $DEPLOYMENT 2> /dev/null
     done
+    
+    local BALANCER
+    for BALANCER in configs/$NAME/*-balancer.yaml; do
+        wiistock delete -f $BALANCER 2> /dev/null
+    done
+
+    rm -rf configs/$NAME
 }
 
 function publish() {
@@ -187,6 +199,8 @@ if [[ -z $(kubectl get namespaces | grep "wiistock") ]]; then
 fi
 
 cd $SCRIPT_DIRECTORY
+mkdir -p configs/passwords
+
 case $COMMAND in
     create-instance)    create_instance "$@" ;;
     deploy)             deploy "$@" ;;

@@ -103,7 +103,7 @@ spec:
           name: project
       - name: initializer
         image: wiilog/symfony-initializer:latest
-        command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures"]
+        command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures", "--with-fos"]
         env:
         - name: DATABASE_HOST
           value: "VAR:DATABASE_HOST"
@@ -162,6 +162,8 @@ spec:
           value: "VAR:FORBIDDEN_PHONES"
         - name: APP_DASHBOARD_TOKEN
           value: "VAR:DASHBOARD_TOKEN"
+        - name: APP_NO_MAIL
+          value: "VAR:NO_MAIL"
         - name: CORS_ALLOW_ORIGIN
           value: "^https?://VAR:DOMAIN(:[0-9]+)?$"
         volumeMounts:

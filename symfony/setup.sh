@@ -15,6 +15,20 @@ function wiistock() {
     kubectl --namespace=wiistock "$@"
 }
 
+function create_directories() {
+    local NAME=$1
+
+    if [ -d "configs/$NAME" ]; then
+        read -p "Instance \"$NAME\" already exists, uploads will be lost and data may get corrupted, continue? " REPLY
+
+        if [[ ! $REPLY =~ ^[Yy1]$ ]]; then
+            exit 0
+        fi
+    fi
+
+    mkdir -p configs/$NAME
+}
+
 function request_configuration() {
     echo ""
     echo "  Configuration"
@@ -134,6 +148,8 @@ function create_deployment() {
 
     wiistock apply -f $CONFIG
 }
+
+create_directories $INSTANCE_NAME
 
 request_configuration
 request_database_creation $INSTANCE_NAME

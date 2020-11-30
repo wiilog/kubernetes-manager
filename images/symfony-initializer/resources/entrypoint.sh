@@ -13,6 +13,10 @@ has_option() {
     fi
 }
 
+execute_query() {
+    mysql $2 -h $DATABASE_HOST -P $DATABASE_PORT -u $DATABASE_USER -p$DATABASE_PASSWORD -sse "$1"
+}
+
 install_symfony() {
     composer install \
         --no-dev \
@@ -21,15 +25,16 @@ install_symfony() {
         --no-scripts \
         --no-ansi
 
-    php bin/console fos:js-routing:dump
+    if has_option "--with-fos"; then
+        php bin/console fos:js-routing:dump
+    fi
 
-    SQL_HAS_TABLES="SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DATABASE_NAME';"
-    TABLES_COUNT=$(mysql -h $DATABASE_HOST -P $DATABASE_PORT -u $DATABASE_USER -p$DATABASE_PASSWORD -sse "$SQL_HAS_TABLES")
+    TABLE_COUNT=$(execute_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DATABASE_NAME';")
 
     if [ $? -ne 0 ]; then
         echo "Failed to access database with error code $?, aborting installation"
         exit 1
-    elif [ $TABLES_COUNT = "0" ]; then
+    elif [ "$TABLE_COUNT" = "0" ]; then
         echo "New instance, creating database"
     
         if has_option "--with-migrations"; then
@@ -65,6 +70,8 @@ install_symfony() {
             else
                 echo "0" > /tmp/migrations
             fi
+        else
+            echo "0" > /tmp/migrations
         fi
 
         php bin/console doctrine:schema:update --dump-sql
@@ -81,8 +88,17 @@ install_symfony() {
 }
 
 install_yarn() {
-    yarn install
-    yarn build:only:production
+    FONT_FAMILY=$(execute_query "SELECT value FROM parametrage_global WHERE label = 'FONT FAMILY';" $DATABASE_NAME 2> /dev/null || true)
+    if [ -n "$FONT_FAMILY" ]; then
+        echo "Using font family \"$FONT_FAMILY\""
+        echo "\$mainFont: "$FONT_FAMILY";" > /project/assets/scss/_customFont.scss
+    else
+        echo "Using default font family"
+        echo "" > /project/assets/scss/_customFont.scss
+    fi
+
+    nice -n -20 yarn install
+    nice -n -20 yarn build:only:production
 }
 
 cd /project
@@ -93,5 +109,14 @@ if [ -f /cache/cache.tar.gz ]; then
 fi
 
 install_symfony &
-install_yarn &
+install_yarn    &
 wait
+
+# install_symfony &
+# install_yarn    &> /tmp/yarn.log    &
+# wait
+
+# echo
+# echo
+# echo "Yarn logs output"
+# cat /tmp/yarn.log
