@@ -80,6 +80,8 @@ spec:
       labels:
         app: VAR:INSTANCE_NAME
     spec:
+      imagePullSecrets:
+      - name: regcred
       volumes:
       - name: letsencrypt
         persistentVolumeClaim:
@@ -175,3 +177,37 @@ spec:
           name: uploads
         - mountPath: /project/var
           name: symfony-cache
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: VAR:INSTANCE_NAME
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: VAR:INSTANCE_NAME
+
+---    
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: VAR:INSTANCE_NAME
+  annotations:
+    kubernetes.io/ingress.class: "nginx"    
+    cert-manager.io/issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts: ["VAR:DOMAIN"]
+    secretName: VAR:INSTANCE_NAME-tls
+  rules:
+  - host: VAR:DOMAIN
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: VAR:INSTANCE_NAME
+          servicePort: 80

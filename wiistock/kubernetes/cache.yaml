@@ -36,6 +36,8 @@ kind: Pod
 metadata:
   name: wiistock-cache
 spec:
+  imagePullSecrets:
+  - name: regcred
   restartPolicy: Never
   volumes:
   - name: project

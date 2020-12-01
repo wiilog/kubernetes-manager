@@ -122,49 +122,14 @@ function request_volumes_creation() {
     read
 }
 
-function create_load_balancer() {
+function request_domains_creation() {
     local NAME=$1
     local DOMAIN=$2
-    shift 2
-
-    local ENVIRONMENT
-    for ENVIRONMENT in $@; do
-        if [ $ENVIRONMENT == "custom" ]; then
-            local FULL_NAME=$NAME
-        else
-            local FULL_NAME=$NAME-$ENVIRONMENT
-        fi
-
-        if [[ -z $(wiistock get services | grep "$FULL_NAME") ]]; then
-            local BALANCER_CONFIG=../configs/$FULL_NAME/balancer.yaml
-            cp kubernetes/balancer.yaml $BALANCER_CONFIG
-            sed -i "s|VAR:INSTANCE_NAME|$FULL_NAME|g" $BALANCER_CONFIG
-            wiistock apply -f $BALANCER_CONFIG
-        fi
-    done
-}
-
-function print_load_balancers() {
-    local NAME=$1
-    local DOMAIN=$2
+    local IP=$(kubectl get service ingress-nginx-controller --namespace=ingress-nginx --no-headers | tr -s ' ' | cut -d ' ' -f 4)
 
     shift 2
 
     echo ""
-    echo "Waiting for load balancers to get their IP assigned"
-
-    for ENVIRONMENT in $@; do
-        if [ $ENVIRONMENT == "custom" ]; then
-            local FULL_NAME=$NAME
-        else
-            local FULL_NAME=$NAME-$ENVIRONMENT
-        fi
-
-        while [[ ! $(wiistock get services | grep $FULL_NAME | tr -s ' ' | cut -d ' ' -f 4) =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; do
-            sleep 2
-        done
-    done
-    
     echo "Create the following domains and press enter when done"
 
     for ENVIRONMENT in $@; do
@@ -174,7 +139,6 @@ function print_load_balancers() {
             local FULL_NAME=$NAME-$ENVIRONMENT
         fi
         
-        local IP=$(wiistock get services | grep $FULL_NAME | tr -s ' ' | cut -d ' ' -f 4)
         echo -e "    $FULL_NAME.$DOMAIN\t with target\t $IP"
     done
 
@@ -197,11 +161,14 @@ function clear_instance() {
     fi
 
     # Delete anything with the same name
-    wiistock delete deployment $FULL_NAME                  2> /dev/null
-    wiistock delete pvc $FULL_NAME-letsencrypt             2> /dev/null
-    wiistock delete pvc $FULL_NAME-uploads                 2> /dev/null
-    wiistock delete pv wiistock-$FULL_NAME-letsencrypt-pv  2> /dev/null
-    wiistock delete pv wiistock-$FULL_NAME-uploads-pv      2> /dev/null
+    wiistock delete ingress $FULL_NAME                    2> /dev/null
+    wiistock delete service $FULL_NAME                    2> /dev/null
+    wiistock delete secret $FULL_NAME-tls                 2> /dev/null
+    wiistock delete deployment $FULL_NAME                 2> /dev/null
+    wiistock delete pvc $FULL_NAME-letsencrypt            2> /dev/null
+    wiistock delete pvc $FULL_NAME-uploads                2> /dev/null
+    wiistock delete pv wiistock-$FULL_NAME-letsencrypt-pv 2> /dev/null
+    wiistock delete pv wiistock-$FULL_NAME-uploads-pv     2> /dev/null
 }
 
 function create_deployment() {
@@ -255,9 +222,7 @@ create_directories $NAME ${ENVIRONMENTS[@]}
 request_configuration
 request_databases_creation $NAME ${ENVIRONMENTS[@]}
 request_volumes_creation $NAME ${ENVIRONMENTS[@]}
-
-create_load_balancer $NAME $DOMAIN ${ENVIRONMENTS[@]}
-print_load_balancers $NAME $DOMAIN ${ENVIRONMENTS[@]}
+request_domains_creation $NAME $DOMAIN ${ENVIRONMENTS[@]}
 
 for ENVIRONMENT in ${ENVIRONMENTS[@]}; do
     clear_instance $NAME $ENVIRONMENT &
