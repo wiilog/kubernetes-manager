@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PROGRAM_NAME=$(basename $0)
-SCRIPT_DIRECTORY=$(dirname $BASH_SOURCE)
+SCRIPT_DIRECTORY=$(dirname $([ -L $0 ] && readlink -f $0 || echo $0))
 COMMAND=$1
 
 function wiistock() {
@@ -175,6 +175,25 @@ function publish() {
     fi
 }
 
+function self_update() {
+    if [ "$UPDATE_GUARD" ]; then
+        return
+    fi
+    
+    export UPDATE_GUARD=YES
+
+    git fetch > /dev/null 2> /dev/null
+
+    if [ $(git rev-parse HEAD) == $(git rev-parse @{u}) ]; then
+        echo "Already the latest version."
+        exit 0
+    else
+        echo "New version found, pulling update"
+        git pull > /dev/null 2> /dev/null
+        exit 0
+    fi
+}
+
 function usage() {
     echo "Manage and deploy kubernetes instances"
     echo ""
@@ -188,6 +207,7 @@ function usage() {
     echo "    cache <template>                     Creates or updates a template's cache"
     echo "    delete <instance>                    Deletes a deployment"
     echo "    publish <image>                      Builds and pushes the docker image"
+    echo "    self-update                          Updates the script from git repository"
     echo ""
     exit 0
 }
@@ -209,5 +229,6 @@ case $COMMAND in
     cache)              cache "$@" ;;
     delete)             delete "$@" ;;
     publish)            publish "$@" ;;
+    self-update)        self_update "$@" ;;
     *)                  usage "$@" ;;
 esac
