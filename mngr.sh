@@ -13,7 +13,7 @@ function activate_maintenance() {
     local PODS=$(wiistock get pods -l app=$INSTANCE | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
     local PODS_COUNT=$(echo $PODS | wc -w)
 
-    echo "Rolling $PODS_COUNT pods to maintainance mode"
+    echo "Rolling $PODS_COUNT pods to maintainance mode for $NAME"
     
     local POD
     for POD in $PODS; do
@@ -39,8 +39,19 @@ function create_instance() {
 
     (cd $TEMPLATE; bash setup.sh $NAME $@)
 }
-  
+
 function deploy() {
+    echo "Deploying $# instances"
+
+    local INSTANCE
+    for INSTANCE in $@; do
+        do_deploy $INSTANCE &
+    done
+
+    wait
+}
+
+function do_deploy() {
     if [[ $# -ne 1 ]]; then
         echo "Illegal number of arguments, expected between 1, found $#"
         exit 201
@@ -56,11 +67,11 @@ function deploy() {
     fi
     
     if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
-        echo "An instance is already being deployed"
+        echo "An instance of \"$NAME\" is already being deployed"
         exit 203
     fi
 
-    echo "Starting database backup"
+    echo "Starting database $NAME backup"
     DATABASE_NAME=${NAME//-}
     DATABASE_USER=${NAME%-*}
     DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
@@ -82,7 +93,7 @@ function deploy() {
     
     local POD=$(wiistock get pods -l app=$NAME | grep "Init:1/2" | tr -s ' ' | cut -d ' ' -f 1)
     
-    echo "Waiting for pod to reach migrations step"
+    echo "Waiting for $NAME pods to reach migrations step"
     
     # Wait for the file to be created and get its content
     while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
@@ -91,7 +102,7 @@ function deploy() {
 
     # Reattach the detached database backup thread
     wait
-    echo "Finished database backup"
+    echo "Finished $NAME database backup"
 
     local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
 
@@ -99,7 +110,7 @@ function deploy() {
         activate_maintenance $NAME
         wiistock exec $POD -c initializer -- sh -c "echo '1' > /tmp/ready"
     else
-        echo "No migration detected, proceeding without maintenance"
+        echo "No migration detected, proceeding $NAME deployment without maintenance"
     fi
 }
 
@@ -142,16 +153,7 @@ function delete() {
         exit 202
     fi
 
-    local DEPLOYMENT
-    for DEPLOYMENT in configs/$NAME/*-deployment.yaml; do
-        wiistock delete -f $DEPLOYMENT 2> /dev/null
-    done
-    
-    local BALANCER
-    for BALANCER in configs/$NAME/*-balancer.yaml; do
-        wiistock delete -f $BALANCER 2> /dev/null
-    done
-
+    wiistock delete -f configs/$NAME/deployment.yaml 2> /dev/null
     rm -rf configs/$NAME
 }
 
