@@ -37,6 +37,7 @@ metadata:
   name: VAR:INSTANCE_NAME
   labels:
     app: VAR:INSTANCE_NAME
+    template: symfony
 spec:
   replicas: VAR:REPLICAS_COUNT
   selector:

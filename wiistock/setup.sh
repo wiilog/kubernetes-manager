@@ -165,9 +165,7 @@ function clear_instance() {
     wiistock delete service $FULL_NAME                    2> /dev/null
     wiistock delete secret $FULL_NAME-tls                 2> /dev/null
     wiistock delete deployment $FULL_NAME                 2> /dev/null
-    wiistock delete pvc $FULL_NAME-letsencrypt            2> /dev/null
     wiistock delete pvc $FULL_NAME-uploads                2> /dev/null
-    wiistock delete pv wiistock-$FULL_NAME-letsencrypt-pv 2> /dev/null
     wiistock delete pv wiistock-$FULL_NAME-uploads-pv     2> /dev/null
 }
 
@@ -191,7 +189,7 @@ function create_deployment() {
     fi
 
     local CONFIG=../configs/$FULL_NAME/deployment.yaml
-    local STORAGE_SIZE=$((${STORAGE_SIZES[$ENVIRONMENT]} - 1))
+    local STORAGE_SIZE=$((${STORAGE_SIZES[$ENVIRONMENT]}))
     local DASHBOARD_TOKEN=$(openssl rand -base64 32 | tr --delete =/)
     local SECRET=$(openssl rand -base64 8 | tr --delete =/)
 
