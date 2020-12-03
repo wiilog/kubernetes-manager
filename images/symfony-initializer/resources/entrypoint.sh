@@ -17,18 +17,25 @@ execute_query() {
     mysql $2 -h $DATABASE_HOST -P $DATABASE_PORT -u $DATABASE_USER -p$DATABASE_PASSWORD -sse "$1"
 }
 
-install_symfony() {
+prepare_project() {
+    # Extract vendor and node_modules from cache if it exists
+    if [ -f /cache/cache.tar.gz ]; then
+        tar xzf /cache/cache.tar.gz
+    fi
+
     composer install \
         --no-dev \
         --optimize-autoloader \
         --classmap-authoritative \
         --no-scripts \
-        --no-ansi
+        --no-ansi &
+        
+    yarn install &
 
-    if has_option "--with-fos"; then
-        php bin/console fos:js-routing:dump
-    fi
+    wait
+}
 
+install_symfony() {
     TABLE_COUNT=$(execute_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DATABASE_NAME';")
 
     if [ $? -ne 0 ]; then
@@ -81,13 +88,15 @@ install_symfony() {
     if has_option "--with-fixtures"; then
         php bin/console doctrine:fixtures:load --append --group fixtures
         php bin/console app:update:translations
-        #rm -rf var/cache/prod/translations/
+        rm -rf var/cache/prod/translations/
     fi
-
-    php bin/console cache:clear
 }
 
 install_yarn() {
+    if has_option "--with-fos"; then
+        php bin/console fos:js-routing:dump
+    fi
+
     FONT_FAMILY=$(execute_query "SELECT value FROM parametrage_global WHERE label = 'FONT FAMILY';" $DATABASE_NAME 2> /dev/null || true)
     if [ -n "$FONT_FAMILY" ]; then
         echo "Using font family \"$FONT_FAMILY\""
@@ -97,26 +106,12 @@ install_yarn() {
         echo "" > /project/assets/scss/_customFont.scss
     fi
 
-    nice -n 0 yarn install
-    nice -n 0 yarn build:only:production
+    yarn build:only:production
 }
 
 cd /project
 
-# Extract vendor and node_modules from cache if it exists
-if [ -f /cache/cache.tar.gz ]; then
-    tar xzf /cache/cache.tar.gz
-fi
-
+prepare_project
 install_symfony &
 install_yarn    &
 wait
-
-# install_symfony &
-# install_yarn    &> /tmp/yarn.log    &
-# wait
-
-# echo
-# echo
-# echo "Yarn logs output"
-# cat /tmp/yarn.log
