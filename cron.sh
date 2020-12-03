@@ -25,7 +25,7 @@ function run() {
     local COMMAND=$2
 
     local POD
-    for POD in $(wiistock get pods --no-headers -l template=$TEMPLATE | tr -s ' ' | cut -d ' ' -f 1); do
+    for POD in $(wiistock get pods --no-headers -l template=$TEMPLATE | grep Running | tr -s ' ' | cut -d ' ' -f 1); do
         echo "Running $COMMAND on pod $POD"
         wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
     done
