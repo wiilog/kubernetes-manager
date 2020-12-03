@@ -47,6 +47,7 @@ spec:
     metadata:
       labels:
         app: VAR:INSTANCE_NAME
+        template: wiistock
     spec:
       imagePullSecrets:
       - name: regcred

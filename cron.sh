@@ -15,17 +15,20 @@ COMMANDS[dashboard-feeds]="php /project/bin/console app:feed:dashboards"
 COMMANDS[average-requests]="php /project/bin/console app:feed:average:requests"
 
 function wiistock() {
-    kubectl --namespace=wiistock "$@"
+    /usr/local/bin/kubectl --namespace=wiistock "$@"
 }
 
 function run() {
     local TEMPLATE=$1
-    local TASK=$2
+    local COMMAND=$2
 
     local POD
     for POD in $(wiistock get pods --no-headers -l template=$TEMPLATE | tr -s ' ' | cut -d ' ' -f 1); do
-        wiistock exec $POD -- ${TASKS[$TASK]}
+        echo "Running $COMMAND on pod $POD"
+        wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
     done
+
+    wait
 }
 
 function usage() {
