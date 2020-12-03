@@ -88,8 +88,10 @@ install_symfony() {
     if has_option "--with-fixtures"; then
         php bin/console doctrine:fixtures:load --append --group fixtures
         php bin/console app:update:translations
-        rm -rf var/cache/prod/translations/
     fi
+
+    php bin/console cache:clear
+    php bin/console cache:warmup
 }
 
 install_yarn() {
