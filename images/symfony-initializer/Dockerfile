@@ -10,3 +10,4 @@ RUN php composer-setup.php --version=1.10.17 --install-dir=bin --filename=compos
 RUN php -r "unlink('composer-setup.php');"
 
 ADD resources/entrypoint.sh /bootstrap/entrypoint.sh
+RUN chmod +x /bootstrap/entrypoint.sh
