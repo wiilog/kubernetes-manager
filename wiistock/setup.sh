@@ -64,7 +64,7 @@ function request_configuration() {
     read -p "Replicas count:   " REPLICAS_COUNT
 
     if [ $ENVIRONMENTS == "custom" ]; then
-        read -p "Environment:      " ENVIRONMENT
+        read -p "Environment:      " REAL_ENVIRONMENT
         read -p "Branch:           " BRANCH
         read -p "Send mails (y/n): " SEND_MAILS
         
@@ -182,10 +182,12 @@ function create_deployment() {
         local FULL_NAME=$NAME
         local FULL_NAME_GLUED=$NAME
         local FULL_DOMAIN=$NAME.$DOMAIN
+        local REAL_ENVIRONMENT=$REAL_ENVIRONMENT
     else
         local FULL_NAME=$NAME-$ENVIRONMENT
         local FULL_NAME_GLUED=$NAME$ENVIRONMENT
         local FULL_DOMAIN=$FULL_NAME.$DOMAIN
+        local REAL_ENVIRONMENT=$ENVIRONMENT
     fi
 
     local CONFIG=../configs/$FULL_NAME/deployment.yaml
@@ -205,7 +207,7 @@ function create_deployment() {
     sed -i "s|VAR:DATABASE_USER|${DATABASE[user]}|g"    $CONFIG
     sed -i "s|VAR:DATABASE_PASS|${DATABASE[pass]}|g"    $CONFIG
     sed -i "s|VAR:DATABASE_NAME|$FULL_NAME_GLUED|g"     $CONFIG
-    sed -i "s|VAR:ENV|prod|g"                           $CONFIG
+    sed -i "s|VAR:ENV|$REAL_ENVIRONMENT|g"              $CONFIG
     sed -i "s|VAR:SECRET|$SECRET|g"                     $CONFIG
     sed -i "s|VAR:CLIENT|$CLIENT|g"                     $CONFIG
     sed -i "s|VAR:URL|https://$FULL_DOMAIN|g"           $CONFIG

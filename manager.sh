@@ -192,6 +192,12 @@ function self_update() {
         git pull > /dev/null 2> /dev/null
         exit 0
     fi
+
+    chmod a+x manager.sh
+    chmod a+x opt.sh
+    chmod a+x /bin/kmn
+    chmod a+x /bin/kman
+    chmod a+x /bin/kron
 }
 
 function usage() {
