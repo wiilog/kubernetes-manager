@@ -21,6 +21,12 @@ if [ -f ../configs/passwords/$NAME ]; then
     DATABASE_PASSWORD=$(cat ../configs/passwords/$NAME)
 else
     DATABASE_PASSWORD=$(openssl rand -base64 16 | tr --delete =/+)
+
+    # Make sure the password contains uppercase
+    while [[ -z $(echo $DATABASE_PASSWORD | awk "/[a-z]/ && /[A-Z]/ && /[0-9]/") ]]; do
+        DATABASE_PASSWORD=$(openssl rand -base64 16 | tr --delete =/+)
+    done
+
     echo $DATABASE_PASSWORD > ../configs/passwords/$NAME
 fi
 

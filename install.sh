@@ -11,7 +11,6 @@ create_link() {
     rm -f $2
     ln -s $1 $2
     chmod a+x $1
-    chmod a+x $2
 }
 
 install() {

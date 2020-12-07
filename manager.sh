@@ -194,10 +194,7 @@ function self_update() {
     fi
 
     chmod a+x manager.sh
-    chmod a+x opt.sh
-    chmod a+x /bin/kmn
-    chmod a+x /bin/kman
-    chmod a+x /bin/kron
+    chmod a+x cron.sh
 }
 
 function usage() {
