@@ -228,19 +228,20 @@ function self_update() {
     
     export UPDATE_GUARD=YES
 
+    # Remove any modifications
+    git checkout HEAD -- images symfony wiistock cron.sh install.sh manager.sh README.md
     git fetch > /dev/null 2> /dev/null
 
     if [ $(git rev-parse HEAD) == $(git rev-parse @{u}) ]; then
         echo "Already the latest version."
-        exit 0
     else
         echo "New version found, pulling update"
         git pull > /dev/null 2> /dev/null
-        exit 0
     fi
 
     chmod a+x manager.sh
     chmod a+x cron.sh
+    exit 0
 }
 
 function usage() {
