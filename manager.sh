@@ -52,7 +52,7 @@ function create_instance() {
     (cd $TEMPLATE; bash setup.sh $NAME $@)
 }
 
-function path() {
+function patch() {
     if [ $# -lt 2 ]; then
         echo "Illegal number of arguments, expected at least 2, found $#"
         exit 101
@@ -60,6 +60,11 @@ function path() {
 
     echo "Patching an instance DOES NOT support modifying persistent volumes"
     echo "or persistent volume claims. Doing so will result in data loss."
+
+    read -p "Continue?" REPLY
+    if [[ ! $REPLY =~ ^[Yy1]$ ]]; then
+        exit 0
+    fi
 }
 
 function deploy() {
@@ -71,6 +76,8 @@ function deploy() {
     done
 
     wait
+
+    echo "Successfully deployed $# instances"
 }
 
 function do_deploy() {
@@ -93,7 +100,7 @@ function do_deploy() {
         exit 203
     fi
 
-    echo "Starting database $NAME backup"
+    echo "Starting database backup for $NAME"
     DATABASE_NAME=${NAME//-}
     DATABASE_USER=${NAME%-*}
     DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
@@ -134,6 +141,12 @@ function do_deploy() {
     else
         echo "No migration detected, proceeding $NAME deployment without maintenance"
     fi
+
+    while [[ -z $(wiistock get pods -l app=$NAME | grep $POD | grep "Running") ]]; do
+        sleep 1
+    done;
+
+    echo "Successfully deployed $NAME"
 }
 
 function open() {
