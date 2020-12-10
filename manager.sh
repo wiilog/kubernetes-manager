@@ -4,19 +4,20 @@ PROGRAM_NAME=$(basename $0)
 SCRIPT_DIRECTORY=$(dirname $([ -L $0 ] && readlink -f $0 || echo $0))
 COMMAND=$1
 
-function wiistock() {
-    kubectl --namespace=wiistock "$@"
+OPTIONS="$@"
+
+function has_option() {
+    MATCH="$1"
+
+    if test "${OPTIONS#*$MATCH}" != "$OPTIONS"; then
+        return 0
+    else
+        return 1
+    fi
 }
 
-function open() {
-    local INSTANCE=$1
-    local POD=$(kubectl get pods -n wiistock --no-headers=true | awk -F ' ' '{print $1}' | grep $INSTANCE)
-    
-    if [ -z $POD ]; then
-        echo 'No instance found with the name provided.';
-    else
-        kubectl exec -n wiistock -it $POD -- sh -c 'apk add nano bash > /dev/null && bash && apk del nano bash > /dev/null';
-    fi
+function wiistock() {
+    kubectl --namespace=wiistock "$@"
 }
 
 function activate_maintenance() {
@@ -49,6 +50,16 @@ function create_instance() {
     fi
 
     (cd $TEMPLATE; bash setup.sh $NAME $@)
+}
+
+function path() {
+    if [ $# -lt 2 ]; then
+        echo "Illegal number of arguments, expected at least 2, found $#"
+        exit 101
+    fi
+
+    echo "Patching an instance DOES NOT support modifying persistent volumes"
+    echo "or persistent volume claims. Doing so will result in data loss."
 }
 
 function deploy() {
@@ -122,6 +133,17 @@ function do_deploy() {
         wiistock exec $POD -c initializer -- sh -c "echo '1' > /tmp/ready"
     else
         echo "No migration detected, proceeding $NAME deployment without maintenance"
+    fi
+}
+
+function open() {
+    local INSTANCE=$1
+    local POD=$(kubectl get pods -n wiistock --no-headers=true | awk -F ' ' '{print $1}' | grep $INSTANCE)
+    
+    if [ -z $POD ]; then
+        echo "No instance found matching the provided name";
+    else
+        kubectl exec -n wiistock -it $POD -- sh -c "apk add nano bash > /dev/null && bash && apk del nano bash > /dev/null";
     fi
 }
 
@@ -216,10 +238,12 @@ function usage() {
     echo ""
     echo "COMMANDS:"
     echo "    create-instance <template> <name>    Create an instance"
+    echo "    patch <template> <name>              Recreates the configuration files and"
+    echo "                                         apply them to the running instance"
     echo "    deploy <...instances>                Deploys the given instance(s)"
     echo "                                         or all environments if not specified"
+    echo "    open <instance>                      Opens a bash in the instance"
     echo "    cache <template>                     Creates or updates a template's cache"
-    echo "    open instance                        Obtain a bash in an instance's pod"
     echo "    delete <instance>                    Deletes a deployment"
     echo "    publish <image>                      Builds and pushes the docker image"
     echo "    self-update                          Updates the script from git repository"
@@ -240,11 +264,12 @@ mkdir -p configs/passwords
 
 case $COMMAND in
     create-instance)    create_instance "$@" ;;
+    patch)              patch "$@" ;;
     deploy)             deploy "$@" ;;
+    open)               open "$@" ;;
     cache)              cache "$@" ;;
     delete)             delete "$@" ;;
     publish)            publish "$@" ;;
     self-update)        self_update "$@" ;;
-    open)               open "$@" ;;
     *)                  usage "$@" ;;
 esac

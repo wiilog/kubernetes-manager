@@ -243,12 +243,14 @@ for ENVIRONMENT in ${ENVIRONMENTS[@]}; do
     fi
 
     if [ -z "$BRANCH" ]; then
-        BRANCH=${BRANCH_PREFIXES[$ENVIRONMENT]}-$BRANCHES_SUFFIX
+        FINAL_BRANCH=${BRANCH_PREFIXES[$ENVIRONMENT]}-$BRANCHES_SUFFIX
+    else
+        FINAL_BRANCH=$BRANCH
     fi
 
     create_deployment $NAME $ENVIRONMENT $REPLICAS_FOR_ENV \
         $DOMAIN \
-        $BRANCH \
+        $FINAL_BRANCH \
         $CLIENT \
         $NO_MAIL &
 done
