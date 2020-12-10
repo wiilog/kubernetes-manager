@@ -8,6 +8,17 @@ function wiistock() {
     kubectl --namespace=wiistock "$@"
 }
 
+function open() {
+    local INSTANCE=$1
+    local POD=$(kubectl get pods -n wiistock --no-headers=true | awk -F ' ' '{print $1}' | grep $INSTANCE)
+    
+    if [ -z $POD ]; then
+        echo 'No instance found with the name provided.';
+    else
+        kubectl exec -n wiistock -it $POD -- sh -c 'apk add nano bash > /dev/null && bash && apk del nano bash > /dev/null';
+    fi
+}
+
 function activate_maintenance() {
     local INSTANCE=$1
     local PODS=$(wiistock get pods -l app=$INSTANCE | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
@@ -208,6 +219,7 @@ function usage() {
     echo "    deploy <...instances>                Deploys the given instance(s)"
     echo "                                         or all environments if not specified"
     echo "    cache <template>                     Creates or updates a template's cache"
+    echo "    open instance                        Obtain a bash in an instance's pod"
     echo "    delete <instance>                    Deletes a deployment"
     echo "    publish <image>                      Builds and pushes the docker image"
     echo "    self-update                          Updates the script from git repository"
@@ -233,5 +245,6 @@ case $COMMAND in
     delete)             delete "$@" ;;
     publish)            publish "$@" ;;
     self-update)        self_update "$@" ;;
+    open)               open "$@" ;;
     *)                  usage "$@" ;;
 esac
