@@ -9,12 +9,20 @@ TIMES[imports]="*/30 * * * *"
 TIMES[dashboard-feeds]="*/5 * * * *"
 TIMES[average-requests]="0 20 * * *"
 TIMES[alerts]="0 20 * * *"
+TIMES[dispute-mails]="0 8 * * *"
+TIMES[missions]="0 23 * * 0"
 
 declare -A COMMANDS
 COMMANDS[imports]="php /project/bin/console app:launch:imports"
 COMMANDS[dashboard-feeds]="php /project/bin/console app:feed:dashboards"
 COMMANDS[average-requests]="php /project/bin/console app:feed:average:requests"
 COMMANDS[alerts]="php /project/bin/console app:generate:alerts"
+COMMANDS[dispute-mails]="php /project/bin/console app:mails-litiges"
+COMMANDS[missions]="php /project/bin/console app:generate:mission"
+
+declare -A SPECIFICS
+SPECIFICS[dispute-mails]="scs1-prod scs1-rec"
+SPECIFICS[missions]="cl2-prod cl2-rec"
 
 function wiistock() {
     /usr/local/bin/kubectl --namespace=wiistock "$@"
@@ -26,8 +34,21 @@ function run() {
 
     local POD
     for POD in $(wiistock get pods --no-headers -l template=$TEMPLATE | grep Running | tr -s ' ' | cut -d ' ' -f 1); do
-        echo "Running $COMMAND on pod $POD"
-        wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
+        if [ -n "${SPECIFICS[$COMMAND]}" ]; then
+            local INSTANCES=${SPECIFICS[$COMMAND]}
+            local SPECIFIC
+
+            for SPECIFIC in $INSTANCES; do
+                if [[ $POD == $SPECIFIC* ]]; then
+                    echo "Running specific $COMMAND on pod $POD"
+                    wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
+                    break
+                fi
+            done
+        else
+            echo "Running $COMMAND on pod $POD"
+            wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
+        fi
     done
 
     wait
