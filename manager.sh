@@ -4,18 +4,6 @@ PROGRAM_NAME=$(basename $0)
 SCRIPT_DIRECTORY=$(dirname $([ -L $0 ] && readlink -f $0 || echo $0))
 COMMAND=$1
 
-OPTIONS="$@"
-
-function has_option() {
-    MATCH="$1"
-
-    if test "${OPTIONS#*$MATCH}" != "$OPTIONS"; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 function wiistock() {
     kubectl --namespace=wiistock "$@"
 }
@@ -52,19 +40,32 @@ function create_instance() {
     (cd $TEMPLATE; bash setup.sh $NAME $@)
 }
 
-function patch() {
+function reconfigure() {
     if [ $# -lt 2 ]; then
         echo "Illegal number of arguments, expected at least 2, found $#"
         exit 101
     fi
 
-    echo "Patching an instance DOES NOT support modifying persistent volumes"
+    local TEMPLATE=$1
+    local NAME=$2
+    shift 2
+
+    # Check if template exists
+    if [ ! -d "./$TEMPLATE" ]; then
+        echo "Unknown template $TEMPLATE"
+        exit 102
+    fi
+
+    # This warning applies to modifying the volumes in deployment.yaml
+    echo "Reconfiguring an instance DOES NOT support modifying persistent volumes"
     echo "or persistent volume claims. Doing so will result in data loss."
 
     read -p "Continue?" REPLY
     if [[ ! $REPLY =~ ^[Yy1]$ ]]; then
         exit 0
     fi
+    
+    (cd $TEMPLATE; bash setup.sh $NAME $@ --reconfigure)
 }
 
 function deploy() {
@@ -252,10 +253,9 @@ function usage() {
     echo ""
     echo "COMMANDS:"
     echo "    create-instance <template> <name>    Create an instance"
-    echo "    patch <template> <name>              Recreates the configuration files and"
+    echo "    reconfigure <template> <name>        Recreates the configuration files and"
     echo "                                         apply them to the running instance"
     echo "    deploy <...instances>                Deploys the given instance(s)"
-    echo "                                         or all environments if not specified"
     echo "    open <instance>                      Opens a bash in the instance"
     echo "    cache <template>                     Creates or updates a template's cache"
     echo "    delete <instance>                    Deletes a deployment"
@@ -278,7 +278,7 @@ mkdir -p configs/passwords
 
 case $COMMAND in
     create-instance)    create_instance "$@" ;;
-    patch)              patch "$@" ;;
+    reconfigure)        reconfigure "$@" ;;
     deploy)             deploy "$@" ;;
     open)               open "$@" ;;
     cache)              cache "$@" ;;

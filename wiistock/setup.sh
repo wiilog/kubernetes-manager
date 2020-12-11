@@ -36,6 +36,16 @@ DATABASE[port]=35403
 DATABASE[user]=$NAME
 DATABASE[pass]=$DATABASE_PASSWORD
 
+function has_option() {
+    MATCH="$1"
+
+    if test "${OPTIONS#*$MATCH}" != "$OPTIONS"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 function wiistock() {
     kubectl --namespace=wiistock "$@"
 }

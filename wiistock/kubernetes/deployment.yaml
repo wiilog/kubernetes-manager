@@ -108,7 +108,6 @@ spec:
         command: ["/bootstrap/entrypoint.sh"]
         ports:
         - containerPort: 80
-        - containerPort: 443
         env:
         - name: DOMAIN
           value: "VAR:DOMAIN"
