@@ -73,17 +73,26 @@ function reconfigure() {
 }
 
 function deploy() {
-    log "Deploying $# instances"
-
     local INSTANCE
-    for INSTANCE in $@; do
+    local INSTANCES
+
+    if [ "$@" = "prod" ]; then
+        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo demo)
+    elif [ "$@" = "rec" ]; then
+        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo test)
+    else
+        INSTANCES=$@
+    fi
+
+    log "Deploying $(echo $INSTANCES | wc -w) instances"
+
+    for INSTANCE in $INSTANCES; do
         do_deploy $INSTANCE &
     done
-
     wait
 
     if [ $# -gt 1 ]; then
-        log "Successfully deployed $# instances"
+        log "Successfully deployed $(echo $INSTANCES | wc -w) instances"
     fi
 }
 
@@ -104,7 +113,7 @@ function do_deploy() {
     
     if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
         log "$NAME - An instance is already being deployed"
-        exit 203
+        exit 0
     fi
 
     echo "$(date '+%k:%M:%S') - $NAME - Starting database backup"
