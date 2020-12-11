@@ -8,12 +8,16 @@ function wiistock() {
     kubectl --namespace=wiistock "$@"
 }
 
+function log() {
+    echo "$(date '+%k:%M:%S') - $1"
+}
+
 function activate_maintenance() {
     local INSTANCE=$1
     local PODS=$(wiistock get pods -l app=$INSTANCE | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
     local PODS_COUNT=$(echo $PODS | wc -w)
 
-    echo "Rolling $PODS_COUNT pods to maintainance mode for $NAME"
+    log "Rolling $PODS_COUNT pods to maintainance mode for $NAME, this step can take up to 5 minutes"
     
     local POD
     for POD in $PODS; do
@@ -69,7 +73,7 @@ function reconfigure() {
 }
 
 function deploy() {
-    echo "Deploying $# instances"
+    log "Deploying $# instances"
 
     local INSTANCE
     for INSTANCE in $@; do
@@ -78,11 +82,13 @@ function deploy() {
 
     wait
 
-    echo "Successfully deployed $# instances"
+    if [ $# -gt 1 ]; then
+        log "Successfully deployed $# instances"
+    fi
 }
 
 function do_deploy() {
-    if [[ $# -ne 1 ]]; then
+    if [ $# -ne 1 ]; then
         echo "Illegal number of arguments, expected between 1, found $#"
         exit 201
     fi
@@ -97,11 +103,11 @@ function do_deploy() {
     fi
     
     if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
-        echo "An instance of \"$NAME\" is already being deployed"
+        log "$NAME - An instance is already being deployed"
         exit 203
     fi
 
-    echo "Starting database backup for $NAME"
+    echo "$(date '+%k:%M:%S') - $NAME - Starting database backup"
     DATABASE_NAME=${NAME//-}
     DATABASE_USER=${NAME%-*}
     DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
@@ -111,9 +117,9 @@ function do_deploy() {
         --host="cb249510-001.dbaas.ovh.net" \
         --user="$DATABASE_USER" \
         --port=35403 \
-        --password="$DATABASE_PASSWORD" > /root/backups/${NAME}_$(date '+%Y-%m-%d-%k-%M-%s').sql 2> /dev/null &
+        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%Y-%m-%d-%k-%M-%s').sql 2> /dev/null &
 
-    echo "Updating deployment $NAME"
+    log "$NAME - Updating deployment"
     wiistock patch deployment $NAME -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": { \"redeploy\": \"$(date +%s)\"}}}}}" > /dev/null
     
     # Wait for the pod to start initializing and get its name
@@ -123,7 +129,7 @@ function do_deploy() {
     
     local POD=$(wiistock get pods -l app=$NAME | grep "Init:1/2" | tr -s ' ' | cut -d ' ' -f 1)
     
-    echo "Waiting for $NAME pods to reach migrations step"
+    log "$NAME - Waiting for pods to reach migrations step"
     
     # Wait for the file to be created and get its content
     while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
@@ -132,7 +138,7 @@ function do_deploy() {
 
     # Reattach the detached database backup thread
     wait
-    echo "Finished $NAME database backup"
+    log "$NAME - Finished database backup"
 
     local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
 
@@ -140,14 +146,14 @@ function do_deploy() {
         activate_maintenance $NAME
         wiistock exec $POD -c initializer -- sh -c "echo '1' > /tmp/ready"
     else
-        echo "No migration detected, proceeding $NAME deployment without maintenance"
+        log "$NAME - No migration detected, proceeding with deployment without maintenance, this step can take up to 5 minutes"
     fi
 
     while [[ -z $(wiistock get pods -l app=$NAME | grep $POD | grep "Running") ]]; do
         sleep 1
     done;
 
-    echo "Successfully deployed $NAME"
+    log "$NAME - Successfully deployed"
 }
 
 function open() {
@@ -234,7 +240,7 @@ function self_update() {
     git fetch > /dev/null 2> /dev/null
 
     if [ $(git rev-parse HEAD) == $(git rev-parse @{u}) ]; then
-        echo "Already the latest version."
+        echo "Already the latest version"
     else
         echo "New version found, pulling update"
         git pull > /dev/null 2> /dev/null
