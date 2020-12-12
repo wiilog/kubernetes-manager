@@ -76,9 +76,9 @@ function deploy() {
     local INSTANCE
     local INSTANCES
 
-    if [ "$@" = "prod" ]; then
+    if [[ $@ == "prod" ]]; then
         INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo demo)
-    elif [ "$@" = "rec" ]; then
+    elif [[ $@ == "rec" ]]; then
         INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo test)
     else
         INSTANCES=$@
@@ -132,7 +132,7 @@ function do_deploy() {
     wiistock rollout restart deployment $NAME > /dev/null
 
     # Temporary to remove the redeploy label
-    for POD in $(wiistock get pods --no-headers -l app=test | tr -s ' ' | cut -d ' ' -f 1); do
+    for POD in $(wiistock get pods --no-headers -l app=$NAME | tr -s ' ' | cut -d ' ' -f 1); do
         wiistock label pod $POD redeploy- > /dev/null
     done
 
@@ -172,12 +172,14 @@ function do_deploy() {
 
 function open() {
     local INSTANCE=$1
-    local POD=$(kubectl get pods -n wiistock --no-headers=true | awk -F ' ' '{print $1}' | grep $INSTANCE)
+    local POD=$(wiistock get pods --no-headers | awk -F ' ' '{print $1}' | grep $INSTANCE)
     
-    if [ -z $POD ]; then
-        echo "No instance found matching the provided name";
+    if [ -z "$POD" ]; then
+        echo "No instance found matching the provided name"
+    elif [ $(echo $POD | wc -w) != 1 ]; then
+        echo "There are more than 1 instances matching this name"
     else
-        kubectl exec -n wiistock -it $POD -- sh -c "apk add nano bash > /dev/null && bash && apk del nano bash > /dev/null"
+        wiistock exec -it $POD -- sh -c "apk add nano bash > /dev/null && bash && apk del nano bash > /dev/null"
     fi
 }
 
