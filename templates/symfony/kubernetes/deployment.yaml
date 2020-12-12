@@ -16,10 +16,12 @@ spec:
         app: VAR:INSTANCE_NAME
         template: symfony
     spec:
+      imagePullSecrets:
+      - name: regcred
       volumes:
-      - name: VAR:INSTANCE_NAME-project
+      - name: project
         emptyDir: {}
-      - name: VAR:INSTANCE_NAME-cache
+      - name: cache
         emptyDir: {}
       initContainers:
       - name: cloner
@@ -27,7 +29,7 @@ spec:
         args: ["clone", "--branch=VAR:BRANCH", "--single-branch", "VAR:REPOSITORY", "/project"]
         volumeMounts:
         - mountPath: /project
-          name: VAR:INSTANCE_NAME-project
+          name: project
       - name: initializer
         image: wiilog/symfony-initializer:latest
         command: ["/bootstrap/entrypoint.sh"]
@@ -58,11 +60,11 @@ spec:
         VAR:VALUE_5
         volumeMounts:
         - mountPath: /project
-          name: VAR:INSTANCE_NAME-project
+          name: project
         - mountPath: /project/var
-          name: VAR:INSTANCE_NAME-cache
+          name: cache
       containers:
-      - name: VAR:INSTANCE_NAME
+      - name: application
         image: wiilog/symfony:latest
         command: ["/bootstrap/entrypoint.sh"]
         env:
@@ -86,9 +88,42 @@ spec:
         VAR:VALUE_5
         ports:
         - containerPort: 80
-        - containerPort: 443
         volumeMounts:
         - mountPath: /project
-          name: VAR:INSTANCE_NAME-project
+          name: project
         - mountPath: /project/var
-          name: VAR:INSTANCE_NAME-cache
+          name: cache
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: VAR:INSTANCE_NAME
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: VAR:INSTANCE_NAME
+
+---    
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: VAR:INSTANCE_NAME
+  annotations:
+    kubernetes.io/ingress.class: "nginx"    
+    cert-manager.io/issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts: ["VAR:DOMAIN"]
+    secretName: VAR:INSTANCE_NAME-tls
+  rules:
+  - host: VAR:DOMAIN
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: VAR:INSTANCE_NAME
+          servicePort: 80

@@ -1,5 +1,24 @@
 #!/bin/bash
 
+NAME=$1; shift
+ENVIRONMENTS=$@
+if [ -z "$ENVIRONMENTS" ]; then
+    ENVIRONMENTS=("rec" "prod")
+fi
+
+if [ -f ../../configs/passwords/$NAME ]; then
+    DATABASE_PASSWORD=$(cat ../../configs/passwords/$NAME)
+else
+    DATABASE_PASSWORD=$(openssl rand -base64 16 | tr --delete =/+)
+
+    # Make sure the password contains uppercase
+    while [[ -z $(echo $DATABASE_PASSWORD | awk "/[a-z]/ && /[A-Z]/ && /[0-9]/") ]]; do
+        DATABASE_PASSWORD=$(openssl rand -base64 16 | tr --delete =/+)
+    done
+
+    echo $DATABASE_PASSWORD > ../../configs/passwords/$NAME
+fi
+
 declare -A BRANCH_PREFIXES
 BRANCH_PREFIXES[prod]="master"
 BRANCH_PREFIXES[rec]="recette"
@@ -10,25 +29,6 @@ STORAGE_SIZES[prod]=25
 STORAGE_SIZES[rec]=10
 STORAGE_SIZES[dev]=10
 STORAGE_SIZES[custom]=10
-
-NAME=$1; shift
-ENVIRONMENTS=$@
-if [ -z "$ENVIRONMENTS" ]; then
-    ENVIRONMENTS=("rec" "prod")
-fi
-
-if [ -f ../configs/passwords/$NAME ]; then
-    DATABASE_PASSWORD=$(cat ../configs/passwords/$NAME)
-else
-    DATABASE_PASSWORD=$(openssl rand -base64 16 | tr --delete =/+)
-
-    # Make sure the password contains uppercase
-    while [[ -z $(echo $DATABASE_PASSWORD | awk "/[a-z]/ && /[A-Z]/ && /[0-9]/") ]]; do
-        DATABASE_PASSWORD=$(openssl rand -base64 16 | tr --delete =/+)
-    done
-
-    echo $DATABASE_PASSWORD > ../configs/passwords/$NAME
-fi
 
 declare -A DATABASE
 DATABASE[host]=cb249510-001.dbaas.ovh.net
@@ -62,7 +62,7 @@ function create_directories() {
             local FULL_NAME=$NAME-$ENVIRONMENT
         fi
         
-        if [ -d ../configs/$FULL_NAME ]; then
+        if [ -d ../../configs/$FULL_NAME ]; then
             read -p "Instance \"$FULL_NAME\" already exists, uploads will be lost and data may get corrupted, continue? " REPLY
 
             if [[ ! $REPLY =~ ^[Yy1]$ ]]; then
@@ -70,7 +70,7 @@ function create_directories() {
             fi
         fi
 
-        mkdir -p ../configs/$FULL_NAME
+        mkdir -p ../../configs/$FULL_NAME
     done
 }
 
@@ -172,8 +172,8 @@ function clear_instance() {
     fi
 
     # Delete the previous instance if it exists
-    if [ -f ../configs/$FULL_NAME/deployment.yaml ]; then
-        kubectl delete -f ../configs/$FULL_NAME/deployment.yaml 2> /dev/null
+    if [ -f ../../configs/$FULL_NAME/deployment.yaml ]; then
+        kubectl delete -f ../../configs/$FULL_NAME/deployment.yaml 2> /dev/null
     fi
 
     # Delete anything with the same name
@@ -206,7 +206,7 @@ function create_deployment() {
         local REAL_ENVIRONMENT=$ENVIRONMENT
     fi
 
-    local CONFIG=../configs/$FULL_NAME/deployment.yaml
+    local CONFIG=../../configs/$FULL_NAME/deployment.yaml
     local STORAGE_SIZE=$((${STORAGE_SIZES[$ENVIRONMENT]}))
     local DASHBOARD_TOKEN=$(openssl rand -base64 32 | tr --delete =/)
     local SECRET=$(openssl rand -base64 8 | tr --delete =/)

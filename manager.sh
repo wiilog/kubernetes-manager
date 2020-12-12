@@ -36,12 +36,12 @@ function create_instance() {
     shift 2
 
     # Check if template exists
-    if [ ! -d "./$TEMPLATE" ]; then
+    if [ ! -d templates/$TEMPLATE ]; then
         echo "Unknown template $TEMPLATE"
         exit 102
     fi
 
-    (cd $TEMPLATE; bash setup.sh $NAME $@)
+    (cd templates/$TEMPLATE; bash setup.sh $NAME $@)
 }
 
 function reconfigure() {
@@ -55,7 +55,7 @@ function reconfigure() {
     shift 2
 
     # Check if template exists
-    if [ ! -d "./$TEMPLATE" ]; then
+    if [ ! -d templates/$TEMPLATE ]; then
         echo "Unknown template $TEMPLATE"
         exit 102
     fi
@@ -69,7 +69,7 @@ function reconfigure() {
         exit 0
     fi
     
-    (cd $TEMPLATE; bash setup.sh $NAME $@ --reconfigure)
+    (cd templates/$TEMPLATE; bash setup.sh $NAME $@ --reconfigure)
 }
 
 function deploy() {
@@ -129,8 +129,13 @@ function do_deploy() {
         --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%Y-%m-%d-%k-%M-%s').sql 2> /dev/null &
 
     log "$NAME - Updating deployment"
-    wiistock patch deployment $NAME -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": { \"redeploy\": \"$(date +%s)\"}}}}}" > /dev/null
-    
+    wiistock rollout restart deployment $NAME > /dev/null
+
+    # Temporary to remove the redeploy label
+    for POD in $(wiistock get pods --no-headers -l app=test | tr -s ' ' | cut -d ' ' -f 1); do
+        wiistock label pod $POD redeploy- > /dev/null
+    done
+
     # Wait for the pod to start initializing and get its name
     while [[ -z $(wiistock get pods -l app=$NAME | grep "Init:1/2") ]]; do
         sleep 1
@@ -172,7 +177,7 @@ function open() {
     if [ -z $POD ]; then
         echo "No instance found matching the provided name";
     else
-        kubectl exec -n wiistock -it $POD -- sh -c "apk add nano bash > /dev/null && bash && apk del nano bash > /dev/null";
+        kubectl exec -n wiistock -it $POD -- sh -c "apk add nano bash > /dev/null && bash && apk del nano bash > /dev/null"
     fi
 }
 
@@ -184,21 +189,21 @@ function cache() {
 
     local TEMPLATE=$1
 
-    if [ ! -d "./$TEMPLATE" ]; then
+    if [ ! -d templates/$TEMPLATE ]; then
         echo "Unknown template $TEMPLATE"
         exit 302
     fi
 
-    if [ ! -f "./$TEMPLATE/kubernetes/cache.yaml" ]; then
+    if [ ! -f templates/$TEMPLATE/kubernetes/cache.yaml ]; then
         echo "Template $TEMPLATE does not have a cache"
         exit 303
     fi
 
     if [ -z "$(wiistock get pods | grep $TEMPLATE-cache)" ]; then
-        wiistock apply -f $TEMPLATE/kubernetes/cache.yaml
+        wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml
     else
         wiistock delete pod $TEMPLATE-cache
-        wiistock apply -f $TEMPLATE/kubernetes/cache.yaml
+        wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml
     fi
 }
 
@@ -245,7 +250,7 @@ function self_update() {
     export UPDATE_GUARD=YES
 
     # Remove any modifications
-    git checkout HEAD -- images symfony wiistock cron.sh install.sh manager.sh README.md
+    git checkout HEAD -- images templates cron.sh install.sh manager.sh README.md
     git fetch > /dev/null 2> /dev/null
 
     if [ $(git rev-parse HEAD) == $(git rev-parse @{u}) ]; then
