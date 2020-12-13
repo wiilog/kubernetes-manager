@@ -73,7 +73,6 @@ function reconfigure() {
 }
 
 function deploy() {
-    local INSTANCE
     local INSTANCES
 
     if [[ $@ == "prod" ]]; then
@@ -84,15 +83,17 @@ function deploy() {
         INSTANCES=$@
     fi
 
-    log "Deploying $(echo $INSTANCES | wc -w) instances"
+    local INSTANCE_COUNT=$(echo $INSTANCES | wc -w)
+    local INSTANCE
+    log "Deploying $INSTANCE_COUNT instances"
 
     for INSTANCE in $INSTANCES; do
         do_deploy $INSTANCE &
     done
     wait
 
-    if [ $# -gt 1 ]; then
-        log "Successfully deployed $(echo $INSTANCES | wc -w) instances"
+    if [ $INSTANCE_COUNT -gt 1 ]; then
+        log "Successfully deployed $INSTANCE_COUNT instances"
     fi
 }
 
@@ -108,15 +109,14 @@ function do_deploy() {
     local PODS=$(wiistock get deployments | grep "$NAME*")
     if [ -z "$PODS" ]; then
         echo "Unknown instance \"$NAME\""
-        exit 202
+        return 202
     fi
     
     if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
         log "$NAME - An instance is already being deployed"
-        exit 0
+        return 203
     fi
 
-    echo "$(date '+%k:%M:%S') - $NAME - Starting database backup"
     DATABASE_NAME=${NAME//-}
     DATABASE_USER=${NAME%-*}
     DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
@@ -126,7 +126,7 @@ function do_deploy() {
         --host="cb249510-001.dbaas.ovh.net" \
         --user="$DATABASE_USER" \
         --port=35403 \
-        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%Y-%m-%d-%k-%M-%s').sql 2> /dev/null &
+        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql 2> /dev/null &
 
     log "$NAME - Updating deployment"
     wiistock rollout restart deployment $NAME > /dev/null
