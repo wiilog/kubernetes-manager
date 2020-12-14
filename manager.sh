@@ -17,7 +17,7 @@ function activate_maintenance() {
     local PODS=$(wiistock get pods -l app=$INSTANCE | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
     local PODS_COUNT=$(echo $PODS | wc -w)
 
-    log "Rolling $PODS_COUNT pods to maintainance mode for $NAME, this step can take up to 5 minutes"
+    log "$NAME - Rolling $PODS_COUNT pods to maintainance mode, this step can take up to 5 minutes"
     
     local POD
     for POD in $PODS; do
@@ -148,9 +148,9 @@ function do_deploy() {
 
     local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
 
-    if [ "$MIGRATIONS" -eq 1 ]; then
+    if [ $MIGRATIONS = 1 ]; then
         activate_maintenance $NAME
-        wiistock exec $POD -c initializer -- sh -c "echo '1' > /tmp/ready"
+        wiistock exec $POD -c initializer -- sh -c "echo -n 1 > /tmp/ready"
     else
         log "$NAME - No migration detected, proceeding with deployment without maintenance, this step can take up to 5 minutes"
     fi

@@ -59,7 +59,7 @@ install_symfony() {
             php bin/console doctrine:migrations:migrate --no-interaction --dry-run --write-sql /tmp/migrations.sql
 
             if [ $(wc -c < /tmp/migrations.sql) -ne 0 ]; then
-                echo "1" > /tmp/migrations
+                echo -n 1 > /tmp/migrations
 
                 STARTED_WAITING=$(date +%s)
                 while [ ! -f /tmp/ready ]; do
@@ -75,10 +75,10 @@ install_symfony() {
                 
                 php bin/console doctrine:migrations:migrate --no-interaction
             else
-                echo "0" > /tmp/migrations
+                echo -n 0 > /tmp/migrations
             fi
         else
-            echo "0" > /tmp/migrations
+            echo -n 0 > /tmp/migrations
         fi
 
         php bin/console doctrine:schema:update --dump-sql
