@@ -117,6 +117,7 @@ function do_deploy() {
         return 203
     fi
 
+    log "$NAME - Starting database backup"
     DATABASE_NAME=${NAME//-}
     DATABASE_USER=${NAME%-*}
     DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
@@ -126,15 +127,10 @@ function do_deploy() {
         --host="cb249510-001.dbaas.ovh.net" \
         --user="$DATABASE_USER" \
         --port=35403 \
-        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql 2> /dev/null &
+        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql 2> /dev/null
 
     log "$NAME - Updating deployment"
     wiistock rollout restart deployment $NAME > /dev/null
-
-    # Temporary to remove the redeploy label
-    for POD in $(wiistock get pods --no-headers -l app=$NAME | tr -s ' ' | cut -d ' ' -f 1); do
-        wiistock label pod $POD redeploy- > /dev/null
-    done
 
     # Wait for the pod to start initializing and get its name
     while [[ -z $(wiistock get pods -l app=$NAME | grep "Init:1/2") ]]; do
@@ -149,10 +145,6 @@ function do_deploy() {
     while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
         sleep 1
     done;
-
-    # Reattach the detached database backup thread
-    wait
-    log "$NAME - Finished database backup"
 
     local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
 
