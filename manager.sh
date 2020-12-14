@@ -24,6 +24,19 @@ function activate_maintenance() {
         wiistock exec $POD -- /bootstrap/maintenance.sh
     done
 }
+
+function backup_database() {
+    local NAME=$1
+    local DATABASE_NAME=${NAME//-}
+    local DATABASE_USER=${NAME%-*}
+    local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
+
+    mysqldump $DATABASE_NAME --no-tablespaces \
+        --host="cb249510-001.dbaas.ovh.net" \
+        --user="$DATABASE_USER" \
+        --port=35403 \
+        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql 2> /dev/null
+}
   
 function create_instance() {
     if [ $# -lt 2 ]; then
@@ -76,9 +89,9 @@ function deploy() {
     local INSTANCES
 
     if [[ $@ == "prod" ]]; then
-        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo demo)
+        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo -n demo)
     elif [[ $@ == "rec" ]]; then
-        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo test)
+        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo -n test)
     else
         INSTANCES=$@
     fi
@@ -88,9 +101,15 @@ function deploy() {
     log "Deploying $INSTANCE_COUNT instances"
 
     for INSTANCE in $INSTANCES; do
-        do_deploy $INSTANCE &
+        log "$INSTANCE - Starting database backup"
+        backup_database $INSTANCE &
     done
     wait
+
+    export -f wiistock
+    export -f log
+    export -f do_deploy
+    echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c 'do_deploy "{}"'
 
     if [ $INSTANCE_COUNT -gt 1 ]; then
         log "Successfully deployed $INSTANCE_COUNT instances"
@@ -117,19 +136,7 @@ function do_deploy() {
         return 203
     fi
 
-    log "$NAME - Starting database backup"
-    DATABASE_NAME=${NAME//-}
-    DATABASE_USER=${NAME%-*}
-    DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
-
-    # Save the database in a detached thread
-    mysqldump $DATABASE_NAME --no-tablespaces \
-        --host="cb249510-001.dbaas.ovh.net" \
-        --user="$DATABASE_USER" \
-        --port=35403 \
-        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql 2> /dev/null
-
-    log "$NAME - Updating deployment"
+    log "$NAME - Starting deployment"
     wiistock rollout restart deployment $NAME > /dev/null
 
     # Wait for the pod to start initializing and get its name
