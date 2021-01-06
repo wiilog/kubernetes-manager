@@ -33,7 +33,7 @@ function run() {
     local COMMAND=$2
     local INSTANCE=$3
 
-    if [ -n $INSTANCE ]; then
+    if [ -n "$INSTANCE" ]; then
         local POD=$(wiistock get pods --no-headers -l app=$INSTANCE | grep Running | tr -s ' ' | cut -d ' ' -f 1)
         if [ -n $POD ]; then
             echo "Running $COMMAND on pod $POD"
