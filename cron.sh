@@ -31,25 +31,36 @@ function wiistock() {
 function run() {
     local TEMPLATE=$1
     local COMMAND=$2
+    local INSTANCE=$3
 
-    local POD
-    for POD in $(wiistock get pods --no-headers -l template=$TEMPLATE | grep Running | tr -s ' ' | cut -d ' ' -f 1); do
-        if [ -n "${SPECIFICS[$COMMAND]}" ]; then
-            local INSTANCES=${SPECIFICS[$COMMAND]}
-            local SPECIFIC
-
-            for SPECIFIC in $INSTANCES; do
-                if [[ $POD == $SPECIFIC* ]]; then
-                    echo "Running specific $COMMAND on pod $POD"
-                    wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
-                    break
-                fi
-            done
-        else
+    if [ -n "$INSTANCE" ]; then
+        local POD=$(wiistock get pods --no-headers -l app=$INSTANCE | grep Running | tr -s ' ' | cut -d ' ' -f 1)
+        if [ -n $POD ]; then
             echo "Running $COMMAND on pod $POD"
             wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
+        else
+            echo "No pod found for app $INSTANCE"
         fi
-    done
+    else
+        local POD
+        for POD in $(wiistock get pods --no-headers -l template=$TEMPLATE | grep Running | tr -s ' ' | cut -d ' ' -f 1); do
+            if [ -n "${SPECIFICS[$COMMAND]}" ]; then
+                local INSTANCES=${SPECIFICS[$COMMAND]}
+                local SPECIFIC
+
+                for SPECIFIC in $INSTANCES; do
+                    if [[ $POD == $SPECIFIC* ]]; then
+                        echo "Running specific $COMMAND on pod $POD"
+                        wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
+                        break
+                    fi
+                done
+            else
+                echo "Running $COMMAND on pod $POD"
+                wiistock exec $POD -- ${COMMANDS[$COMMAND]} &
+            fi
+        done
+    fi
 
     wait
 }
@@ -61,7 +72,7 @@ function usage() {
     echo "    $PROGRAM_NAME <command> [options]"
     echo ""
     echo "COMMANDS:"
-    echo "    run <template> <task>                Run the specified task on the template"
+    echo "    run <template> <task> [instance]     Run the specified task on the template"
     echo ""
     exit 0
 }
