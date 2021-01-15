@@ -166,7 +166,7 @@ metadata:
 spec:
   tls:
   - hosts: ["VAR:DOMAIN"]
-    secretName: global-tls
+    secretName: follow-gt-tls
   rules:
   - host: VAR:DOMAIN
     http:
