@@ -12,30 +12,22 @@ function log() {
     echo "$(date '+%k:%M:%S') - $1"
 }
 
-function activate_maintenance() {
-    local INSTANCE=$1
-    local PODS=$(wiistock get pods -l app=$INSTANCE | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
-    local PODS_COUNT=$(echo $PODS | wc -w)
-
-    log "$NAME - Rolling $PODS_COUNT pods to maintainance mode, this step can take up to 5 minutes"
-    
-    local POD
-    for POD in $PODS; do
-        wiistock exec $POD -- /bootstrap/maintenance.sh
-    done
-}
-
 function backup_database() {
     local NAME=$1
     local DATABASE_NAME=${NAME//-}
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
+    mkdir -p $HOME/backups
+
+    local FILE_NAME="$HOME/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql"
+    local FILE_NAME=${FILE_NAME//[[:blank:]]/}
+
     mysqldump $DATABASE_NAME --no-tablespaces \
         --host="cb249510-001.dbaas.ovh.net" \
         --user="$DATABASE_USER" \
         --port=35403 \
-        --password="$DATABASE_PASSWORD" > /root/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql 2> /dev/null
+        --password="$DATABASE_PASSWORD" > "${FILE_NAME}" 2> /dev/null
 }
   
 function create_instance() {
@@ -156,7 +148,16 @@ function do_deploy() {
     local MIGRATIONS=$(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null)
 
     if [ $MIGRATIONS = 1 ]; then
-        activate_maintenance $NAME
+        local PODS=$(wiistock get pods -l app=$NAME | grep "Running" | tr -s ' ' | cut -d ' ' -f 1)
+        local PODS_COUNT=$(echo $PODS | wc -w)
+
+        log "$NAME - Rolling $PODS_COUNT pods to maintainance mode, this step can take up to 5 minutes"
+
+        local POD
+        for POD in $PODS; do
+            wiistock exec $POD -- /bootstrap/maintenance.sh
+        done
+        
         wiistock exec $POD -c initializer -- sh -c "echo -n 1 > /tmp/ready"
     else
         log "$NAME - No migration detected, proceeding with deployment without maintenance, this step can take up to 5 minutes"

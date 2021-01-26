@@ -121,6 +121,7 @@ function request_databases_creation() {
 
 function request_volumes_creation() {
     local NAME=$1
+    local IPS=$(kubectl get nodes -o jsonpath='{ $.items[*].status.addresses[?(@.type=="InternalIP")].address }' | sed -r 's/ /, /g')
 
     echo ""
     echo "Create the following partitions on OVH panel, allow access from the"
@@ -129,9 +130,9 @@ function request_volumes_creation() {
     shift
     for ENVIRONMENT in $@; do
         if [ "$ENVIRONMENT" == "custom" ]; then
-            echo -e "    $NAME\t(10GO)\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
+            echo -e "    $NAME\t(10GO)\taccessible from\t$IPS"
         else
-            echo -e "    $NAME$ENVIRONMENT\t(${STORAGE_SIZES[$ENVIRONMENT]}GO)\taccessible from\t51.210.121.167, 51.210.125.224, 51.210.127.44"
+            echo -e "    $NAME$ENVIRONMENT\t(${STORAGE_SIZES[$ENVIRONMENT]}GO)\taccessible from\t$IPS"
         fi
     done
 
