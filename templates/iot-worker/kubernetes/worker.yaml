@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-VAR:NAME-deployment
+  namespace: rabbitmq
+  labels:
+    app: worker
+spec:
+  replicas: VAR:REPLICAS_COUNT
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      app: worker-VAR:NAME
+  template:
+    metadata:
+      labels:
+        app: worker-VAR:NAME
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      volumes:
+      - name: jar
+        emptyDir: {}
+      initContainers:
+      - name: git-cloner
+        image: alpine/git
+        args:
+        - clone
+        - --single-branch
+        - --
+        - https://github.com/wiilog/iot-platform.git
+        - /jar
+        volumeMounts:
+        - mountPath: /jar
+          name: jar
+      - name: maven
+        image: maven:3.3-jdk-8
+        args:
+        - mvn
+        - -f
+        - /jar/
+        - package
+        volumeMounts:
+        - mountPath: /jar
+          name: jar
+      containers:
+      - name: worker-VAR:NAME
+        image: openjdk:8-jdk
+        command: ["java", "-jar", "/jar/output/iot-platform.jar", "worker"]
+        volumeMounts:
+        - name: jar
+          mountPath: /jar
+        env:
+        - name: RABBITMQ_IP
+          value: "VAR:RABBITMQ_IP"
+        - name: RABBITMQ_USER
+          value: "VAR:RABBITMQ_USER"
+        - name: RABBITMQ_PWD
+          value: "VAR:RABBITMQ_PWD"
+        - name: QUEUE
+          value: "VAR:QUEUE"
+        - name: IOT_ENDPOINT
+          value: "VAR:IOT_ENDPOINT"
+        - name: IOT_AUTH_TOKEN
+          value: "VAR:IOT_AUTH_TOKEN"

@@ -21,8 +21,8 @@ function request_configuration() {
 
 
 function create_deployment() {
-    local FULL_NAME=dispatch-center-$NAME
-    local CONFIG=../../configs/iot/$FULL_NAME.yaml
+    local FULL_NAME="dispatch-center-$NAME"
+    local CONFIG="$DIRECTORY/$FULL_NAME.yaml"
 
     cp kubernetes/dispatch-center.yaml "$CONFIG"
 
