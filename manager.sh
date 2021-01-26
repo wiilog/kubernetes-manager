@@ -304,6 +304,10 @@ if [[ -z $(kubectl get namespaces | grep "wiistock") ]]; then
     kubectl create namespace wiistock > /dev/null
 fi
 
+if [[ -z $(kubectl get namespaces | grep "rabbitmq") ]]; then
+    kubectl create namespace rabbitmq > /dev/null
+fi
+
 cd $SCRIPT_DIRECTORY
 mkdir -p configs/passwords
 

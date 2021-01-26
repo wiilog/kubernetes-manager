@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatch-center-VAR:NAME-deployment
+  namespace: rabbitmq
+  labels:
+    app: dispatch-center-VAR:NAME
+spec:
+  replicas: VAR:REPLICAS_COUNT
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      app: dispatch-center-VAR:NAME
+  template:
+    metadata:
+      labels:
+        app: dispatch-center-VAR:NAME
+    spec:
+      imagePullSecrets:
+      - name: regcred
+      volumes:
+      - name: jar
+        emptyDir: {}
+      initContainers:
+      - name: git-cloner
+        image: alpine/git
+        args:
+        - clone
+        - --single-branch
+        - --
+        - https://github.com/wiilog/iot-platform.git
+        - /jar
+        volumeMounts:
+        - mountPath: /jar
+          name: jar
+      - name: maven
+        image: maven:3.3-jdk-8
+        args:
+        - mvn
+        - -f
+        - /jar/
+        - package
+        volumeMounts:
+        - mountPath: /jar
+          name: jar
+      containers:
+      - name: dispatch-center-VAR:NAME
+        image: openjdk:8-jdk
+        command: ["java", "-jar", "/jar/output/iot-platform.jar", "dispatch-center"]
+        volumeMounts:
+        - name: jar
+          mountPath: /jar
+        env:
+        - name: RABBITMQ_IP
+          value: "VAR:RABBITMQ_IP"
+        - name: RABBITMQ_PWD
+          value: "VAR:RABBITMQ_PWD"
+        - name: RABBITMQ_USER
+          value: "VAR:RABBITMQ_USER"
+        - name: QUEUE
+          value: "VAR:QUEUE"
+        - name: RABBITMQ_TOPIC_SELECTOR_KEY
+          value: "VAR:RABBITMQ_TOPIC_SELECTOR_KEY"
