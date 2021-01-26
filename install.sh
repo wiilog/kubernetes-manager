@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 USER=$SUDO_USER
 HOME=$(eval echo ~$SUDO_USER)
@@ -15,18 +15,18 @@ if [ ! -f $HOME/.kube/config ]; then
     exit 2
 fi
 
-create_link() {
+function create_link() {
     rm -f $2
     ln -s $1 $2
     chmod a+x $1
 }
 
-prepare_permissions() {
+function prepare_permissions() {
     groupadd kmn -f
     adduser $USER kmn -q
 }
 
-install_dependencies() {
+function install_dependencies() {
     echo
     echo
     echo "    Installing dependencies"
@@ -54,7 +54,7 @@ install_dependencies() {
     sudo mv ./kubectl /usr/local/bin/kubectl
 }
 
-initialize_docker() {
+function initialize_docker() {
     echo
     echo
     echo "    Initializing Docker"
@@ -71,7 +71,7 @@ initialize_docker() {
         --type=kubernetes.io/dockerconfigjson
 }
 
-initialize_cluster() {
+function initialize_cluster() {
     kubectl apply -f /opt/kubernetes-manager/configs/nginx-ingress.yaml
     kubectl apply -f /opt/kubernetes-manager/configs/cert-manager.yaml
 
@@ -83,7 +83,7 @@ initialize_cluster() {
     kubectl apply -f /opt/kubernetes-manager/configs/letsencrypt-issuer.yaml
 }
 
-install_kmn() {
+function install_kmn() {
     git clone https://github.com/wiilog/kubernetes-manager.git $DESTINATION > /dev/null 2> /dev/null
     create_link $DESTINATION/manager.sh    /bin/kmn
     create_link $DESTINATION/manager.sh    /bin/kman
@@ -93,7 +93,7 @@ install_kmn() {
     chmod -R 770 $DESTINATION
 }
 
-install() {
+function install() {
     local DESTINATION=$1
 
     if [ -d $DESTINATION ]; then

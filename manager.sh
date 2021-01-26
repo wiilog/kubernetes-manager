@@ -12,23 +12,32 @@ function log() {
     echo "$(date '+%k:%M:%S') - $1"
 }
 
-function backup_database() {
+function backup_instance() {
     local NAME=$1
     local DATABASE_NAME=${NAME//-}
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
-    mkdir -p $HOME/backups
-    mkdir -p $HOME/backups/$NAME
+    mkdir -p $HOME/backups/$NAME/database
+    mkdir -p $HOME/backups/$NAME/volumes/uploads
 
-    local FILE_NAME="$HOME/backups/$NAME/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql"
-    local FILE_NAME=${FILE_NAME//[[:blank:]]/}
+    local DATABASE_FILE="$HOME/backups/$NAME/database/$(date '+%Y-%m-%d-%k-%M-%S').sql"
+    local DATABASE_FILE=${DATABASE_FILE//[[:blank:]]/}
+
+    local VOLUME_FOLDER="$HOME/backups/$NAME/volumes/uploads/$(date '+%Y-%m-%d-%k-%M-%S')"
+    local VOLUME_FOLDER=${VOLUME_FOLDER//[[:blank:]]/}
 
     mysqldump $DATABASE_NAME --no-tablespaces \
         --host="cb249510-001.dbaas.ovh.net" \
         --user="$DATABASE_USER" \
         --port=35403 \
-        --password="$DATABASE_PASSWORD" > "${FILE_NAME}" 2> /dev/null
+        --password="$DATABASE_PASSWORD" > "${DATABASE_FILE}" 2> /dev/null &
+
+    # Take a running pod and save from it
+    local RUNNING_POD=$(wiistock get pods --no-headers -l app=$NAME | cut -d' ' -f 1 | head -n 1)
+    wiistock cp $RUNNING_POD:project/public/uploads/attachements $VOLUME_FOLDER &
+
+    wait
 }
   
 function create_instance() {
@@ -95,7 +104,7 @@ function deploy() {
 
     for INSTANCE in $INSTANCES; do
         log "$INSTANCE - Starting database backup"
-        backup_database $INSTANCE &
+        backup_instance $INSTANCE &
     done
     wait
 
@@ -202,14 +211,14 @@ function cache() {
         exit 303
     fi
 
+    echo "Creating cache, this can take up to 5 minutes"
+    
     if [ -z "$(wiistock get pods | grep $TEMPLATE-cache)" ]; then
         wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml > /dev/null
     else
         wiistock delete pod $TEMPLATE-cache                         > /dev/null
         wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml > /dev/null
     fi
-
-    echo "Creating cache, this can take up to 5 minutes"
 
     while [[ -z $(wiistock get pods | grep $TEMPLATE-cache | grep "Completed") ]]; do
         sleep 1
