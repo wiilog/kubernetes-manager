@@ -17,7 +17,7 @@ spec:
         template: symfony
     spec:
       imagePullSecrets:
-      - name: regcred
+      - name: docker-token
       volumes:
       - name: project
         emptyDir: {}
