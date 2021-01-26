@@ -19,8 +19,9 @@ function backup_database() {
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
     mkdir -p $HOME/backups
+    mkdir -p $HOME/backups/$NAME
 
-    local FILE_NAME="$HOME/backups/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql"
+    local FILE_NAME="$HOME/backups/$NAME/$NAME-$(date '+%d-%m-%Y-%k-%M-%S').sql"
     local FILE_NAME=${FILE_NAME//[[:blank:]]/}
 
     mysqldump $DATABASE_NAME --no-tablespaces \
@@ -202,11 +203,19 @@ function cache() {
     fi
 
     if [ -z "$(wiistock get pods | grep $TEMPLATE-cache)" ]; then
-        wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml
+        wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml > /dev/null
     else
-        wiistock delete pod $TEMPLATE-cache
-        wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml
+        wiistock delete pod $TEMPLATE-cache                         > /dev/null
+        wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml > /dev/null
     fi
+
+    echo "Creating cache, this can take up to 5 minutes"
+
+    while [[ -z $(wiistock get pods | grep $TEMPLATE-cache | grep "Completed") ]]; do
+        sleep 1
+    done; 
+
+    echo "Successfully created $TEMPLATE cache"
 }
 
 function delete() {
