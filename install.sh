@@ -63,6 +63,8 @@ initialize_docker() {
 
     docker login
 
+    kubectl delete namespace wiistock --ignore-not-found=true
+
     kubectl create namespace wiistock
     kubectl -n wiistock create secret generic docker-token \
         --from-file=.dockerconfigjson=$HOME/.docker/config.json \
@@ -72,6 +74,12 @@ initialize_docker() {
 initialize_cluster() {
     kubectl apply -f /opt/kubernetes-manager/configs/nginx-ingress.yaml
     kubectl apply -f /opt/kubernetes-manager/configs/cert-manager.yaml
+
+    echo
+    echo
+    echo "Waiting for cert-manager"
+
+    sleep 30
     kubectl apply -f /opt/kubernetes-manager/configs/letsencrypt-issuer.yaml
 }
 
