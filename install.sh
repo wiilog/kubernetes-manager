@@ -24,7 +24,6 @@ create_link() {
 prepare_permissions() {
     groupadd kmn -f
     adduser $USER kmn -q
-    echo $USER
 }
 
 install_dependencies() {
@@ -64,6 +63,7 @@ initialize_docker() {
 
     docker login
 
+    kubectl create namespace wiistock
     kubectl -n wiistock create secret generic docker-token \
         --from-file=.dockerconfigjson=$HOME/.docker/config.json \
         --type=kubernetes.io/dockerconfigjson
