@@ -23,7 +23,7 @@ function get_service_ip() {
 }
 
 function get_cluster_pod() {
-    kubectl -n rabbitmq get pods rabbitmq-client --no-headers | tr -s '   ' | cut -d ' ' -f 3
+    kubectl -n rabbitmq get pods --no-headers | tr -s '   ' | cut -d ' ' -f 3
 }
 
 function initialize_rabbitmq() {
