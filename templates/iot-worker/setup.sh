@@ -3,8 +3,8 @@
 NAME=$1; shift
 DIRECTORY=../../configs/iot;
 
-function rabbitmq() {
-    kubectl --namespace=rabbitmq "$@"
+function iot() {
+    kubectl --namespace=iot "$@"
 }
 
 function request_configuration() {
@@ -36,7 +36,7 @@ function create_deployment() {
     sed -i "s|VAR:IOT_ENDPOINT|$IOT_ENDPOINT|g"     "$CONFIG"
     sed -i "s|VAR:IOT_AUTH_TOKEN|$IOT_AUTH_TOKEN|g" "$CONFIG"
 
-    rabbitmq apply -f "$CONFIG"
+    iot apply -f "$CONFIG"
 }
 
 mkdir -p "$DIRECTORY"
