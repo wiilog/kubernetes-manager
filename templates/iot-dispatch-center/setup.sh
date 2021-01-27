@@ -14,6 +14,7 @@ function request_configuration() {
     read -p "RabbitMQ IP:   " RABBITMQ_IP
     read -p "RabbitMQ user:   " RABBITMQ_USER
     read -s -p "RabbitMQ password:   " RABBITMQ_PWD
+    echo ""
     read -p "RabbitMQ topic exchange key:   " RABBITMQ_TOPIC_SELECTOR_KEY
     read -p "Queue to listen on:   " QUEUE
     echo ""
