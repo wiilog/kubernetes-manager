@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [[ -z $(kubectl get namespaces | grep "wiistock") ]]; then
+    echo "Wiistock has not been initialized yet, please run \"kmn setup wiistock\" first"
+    exit 1
+fi
+
 NAME=$1; shift
 ENVIRONMENTS=$@
 if [ -z "$ENVIRONMENTS" ]; then

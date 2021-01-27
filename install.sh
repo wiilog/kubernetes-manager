@@ -23,7 +23,9 @@ function create_link() {
 
 function prepare_permissions() {
     groupadd kmn -f
+    groupadd docker -f
     adduser $USER kmn -q
+    adduser $USER docker -q
 }
 
 function install_dependencies() {
@@ -63,24 +65,7 @@ function initialize_docker() {
 
     docker login
 
-    kubectl delete namespace wiistock --ignore-not-found=true
-
-    kubectl create namespace wiistock
-    kubectl -n wiistock create secret generic docker-token \
-        --from-file=.dockerconfigjson=$HOME/.docker/config.json \
-        --type=kubernetes.io/dockerconfigjson
-}
-
-function initialize_cluster() {
-    kubectl apply -f /opt/kubernetes-manager/configs/nginx-ingress.yaml
-    kubectl apply -f /opt/kubernetes-manager/configs/cert-manager.yaml
-
-    echo
-    echo
-    echo "Waiting for cert-manager"
-
-    sleep 30
-    kubectl apply -f /opt/kubernetes-manager/configs/letsencrypt-issuer.yaml
+    chown -R $USER:$USER $HOME/.docker
 }
 
 function install_kmn() {
@@ -106,7 +91,6 @@ function install() {
     install_dependencies
     initialize_docker
     install_kmn
-    initialize_cluster
 
     echo
     echo
@@ -115,3 +99,4 @@ function install() {
 }
 
 install /opt/kubernetes-manager
+rm "${BASH_SOURCE[0]}"

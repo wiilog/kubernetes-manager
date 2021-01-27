@@ -285,6 +285,23 @@ function self_update() {
     exit 0
 }
 
+function setup() {
+    if [[ $# -ne 1 ]]; then
+        echo "Illegal number of arguments, expected 1, found $#"
+        exit 201
+    fi
+
+    local NAME=$1
+    shift 1
+ 
+    if [ ! -f setup/$NAME.sh ]; then
+        echo "Unknown initialization script \"$NAME\""
+        exit 202
+    fi
+
+    (cd setup/$NAME; bash $NAME.sh $@)
+}
+
 function usage() {
     echo "Manage and deploy kubernetes instances"
     echo ""
@@ -300,6 +317,7 @@ function usage() {
     echo "    cache <template>                     Creates or updates a template's cache"
     echo "    delete <instance>                    Deletes a deployment"
     echo "    publish <image>                      Builds and pushes the docker image"
+    echo "    setup <template>                     Initializes the cluster for the given template"
     echo "    self-update                          Updates the script from git repository"
     echo ""
     exit 0
@@ -307,14 +325,6 @@ function usage() {
 
 if [ -n "$COMMAND" ]; then
     shift
-fi
-
-if [[ -z $(kubectl get namespaces | grep "wiistock") ]]; then
-    kubectl create namespace wiistock > /dev/null
-fi
-
-if [[ -z $(kubectl get namespaces | grep "rabbitmq") ]]; then
-    kubectl create namespace rabbitmq > /dev/null
 fi
 
 cd $SCRIPT_DIRECTORY
@@ -328,6 +338,7 @@ case $COMMAND in
     cache)              cache "$@" ;;
     delete)             delete "$@" ;;
     publish)            publish "$@" ;;
+    setup)              setup "$@" ;;
     self-update)        self_update "$@" ;;
     *)                  usage "$@" ;;
 esac
