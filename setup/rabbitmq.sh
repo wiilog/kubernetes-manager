@@ -10,11 +10,11 @@ function create_secret() {
 function create_credentials() {
     echo "RabbitMQ management credentials"
     read -p "User: " USER
-    read -ps "Password: " PWD
+    read -s -p "Password: " PWD
     echo ""
     echo "$USER" >user
     echo "$PWD" >pass
-    kubectl create secret generic rabbitmq-admin --from-file=./user --from-file=./pass
+    kubectl -n rabbitmq create secret generic rabbitmq-admin --from-file=./user --from-file=./pass
     rm user && rm pass
 }
 
@@ -51,8 +51,12 @@ function initialize_rabbitmq() {
     echo ""
     echo "Service creation...."
     kubectl apply -f ../configs/rabbitmq/service.yml
-
-    while [[ $(get_service_ip) = "<pending>" ]]; do
+    echo "Waiting for cluster pod to be running...."
+    while [[ $(get_cluster_pod) != "Running" ]]; do
+        sleep 1
+    done
+    echo "Waiting for public ip to be generated...."
+    while [[ ! $(get_service_ip) =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; do
         sleep 1
     done
     echo "RabbitMQ cluster configuration is now done, to access the administration interface, reach the following IP with 15672 port and login with the previously entered credentials"
