@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dispatch-center-VAR:NAME-deployment
-  namespace: rabbitmq
+  namespace: iot
   labels:
     app: dispatch-center-VAR:NAME
 spec:

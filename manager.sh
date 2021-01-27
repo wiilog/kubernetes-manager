@@ -39,7 +39,7 @@ function backup_instance() {
 
     wait
 }
-  
+
 function create_instance() {
     if [ $# -lt 2 ]; then
         echo "Illegal number of arguments, expected at least 2, found $#"
@@ -83,7 +83,7 @@ function reconfigure() {
     if [[ ! $REPLY =~ ^[Yy1]$ ]]; then
         exit 0
     fi
-    
+
     (cd templates/$TEMPLATE; bash setup.sh $NAME $@ --reconfigure)
 }
 
@@ -132,7 +132,7 @@ function do_deploy() {
         echo "Unknown instance \"$NAME\""
         return 202
     fi
-    
+
     if [[ -n $(wiistock get pods -l app=$NAME | egrep "Init:[0-9]+/1") ]]; then
         log "$NAME - An instance is already being deployed"
         return 203
@@ -144,12 +144,12 @@ function do_deploy() {
     # Wait for the pod to start initializing and get its name
     while [[ -z $(wiistock get pods -l app=$NAME | grep "Init:1/2") ]]; do
         sleep 1
-    done; 
-    
+    done;
+
     local POD=$(wiistock get pods -l app=$NAME | grep "Init:1/2" | tr -s ' ' | cut -d ' ' -f 1)
-    
+
     log "$NAME - Waiting for pods to reach migrations step"
-    
+
     # Wait for the file to be created and get its content
     while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
         sleep 1
@@ -167,7 +167,7 @@ function do_deploy() {
         for POD in $PODS; do
             wiistock exec $POD -- /bootstrap/maintenance.sh
         done
-        
+
         wiistock exec $POD -c initializer -- sh -c "echo -n 1 > /tmp/ready"
     else
         log "$NAME - No migration detected, proceeding with deployment without maintenance, this step can take up to 5 minutes"
@@ -183,7 +183,7 @@ function do_deploy() {
 function open() {
     local INSTANCE=$1
     local POD=$(wiistock get pods --no-headers | awk -F ' ' '{print $1}' | grep $INSTANCE)
-    
+
     if [ -z "$POD" ]; then
         echo "No instance found matching the provided name"
     elif [ $(echo $POD | wc -w) != 1 ]; then
@@ -212,7 +212,7 @@ function cache() {
     fi
 
     echo "Creating cache, this can take up to 5 minutes"
-    
+
     if [ -z "$(wiistock get pods | grep $TEMPLATE-cache)" ]; then
         wiistock apply -f templates/$TEMPLATE/kubernetes/cache.yaml > /dev/null
     else
@@ -222,7 +222,7 @@ function cache() {
 
     while [[ -z $(wiistock get pods | grep $TEMPLATE-cache | grep "Completed") ]]; do
         sleep 1
-    done; 
+    done;
 
     echo "Successfully created $TEMPLATE cache"
 }
@@ -234,7 +234,7 @@ function delete() {
     fi
 
     local NAME=$1
- 
+
     if [ ! -d configs/$NAME ]; then
         echo "Unknown instance \"$NAME\""
         exit 202
@@ -266,7 +266,7 @@ function self_update() {
     if [ "$UPDATE_GUARD" ]; then
         return
     fi
-    
+
     export UPDATE_GUARD=YES
 
     # Remove any modifications
@@ -293,13 +293,13 @@ function setup() {
 
     local NAME=$1
     shift 1
- 
+
     if [ ! -f setup/$NAME.sh ]; then
         echo "Unknown initialization script \"$NAME\""
         exit 202
     fi
 
-    (cd setup/$NAME; bash $NAME.sh $@)
+    (cd setup; bash $NAME.sh $@)
 }
 
 function usage() {
