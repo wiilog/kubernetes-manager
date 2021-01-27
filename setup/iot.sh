@@ -5,4 +5,4 @@ function initialize_iot() {
     kubectl apply -f ../configs/iot/namespace.yml
 }
 
-initialize_wiistock
+initialize_iot
