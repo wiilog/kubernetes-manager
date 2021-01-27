@@ -3,16 +3,25 @@
 USER=$SUDO_USER
 HOME=$(eval echo ~$SUDO_USER)
 
+if [[ -n $(cat /etc/issue.net | grep -i ubuntu) ]]; then
+    DISTRIBUTION="ubuntu"
+elif [[ -n $(cat /etc/issue.net | grep -i debian) ]]; then
+    DISTRIBUTION="debian"
+else
+    echo "Unsupported distribution"
+    exit 1
+fi
+
 set -e
 
 if [ `id -u` != 0 ]; then
     echo "Install script can only be ran as root"
-    exit 1
+    exit 2
 fi
 
 if [ ! -f $HOME/.kube/config ]; then
     echo "No kube config found, please place your kubeconfig in $HOME/.kube/config"
-    exit 2
+    exit 3
 fi
 
 function create_link() {
@@ -39,12 +48,12 @@ function install_dependencies() {
     apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common --yes
     
     # Docker
-    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+    curl -fsSL https://download.docker.com/linux/$DISTRIBUTION/gpg | apt-key add -
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/$DISTRIBUTION $(lsb_release -cs) stable"
 
     # Helm
     curl https://baltocdn.com/helm/signing.asc | apt-key add -
-    echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
+    echo "deb https://baltocdn.com/helm/stable/debian all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
     
     # Install Docker and Helm
     apt-get update --yes
