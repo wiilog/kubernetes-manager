@@ -40,6 +40,19 @@ function backup_instance() {
     wait
 }
 
+function patch() {
+    if [ $# -lt 3 ]; then
+        echo "Illegal number of arguments, expected at least 3, found $#"
+        exit 101
+    fi
+    local NAMESPACE=$1
+    local TEMPLATE=$2
+    local NAME=$3
+    shift 3
+
+    kubectl -n "$NAMESPACE" patch deployment "$TEMPLATE"-"$NAME"-deployment -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"$(date +'%s')\"}}}}}"
+}
+
 function create_instance() {
     if [ $# -lt 2 ]; then
         echo "Illegal number of arguments, expected at least 2, found $#"
@@ -339,6 +352,7 @@ case $COMMAND in
     delete)             delete "$@" ;;
     publish)            publish "$@" ;;
     setup)              setup "$@" ;;
+    patch)              patch "$@" ;;
     self-update)        self_update "$@" ;;
     *)                  usage "$@" ;;
 esac
