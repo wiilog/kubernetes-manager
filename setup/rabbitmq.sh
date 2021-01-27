@@ -9,8 +9,8 @@ function create_secret() {
 
 function create_credentials() {
     echo "RabbitMQ management credentials"
-    read -pr "User: " USER
-    read -psr "Password: " PWD
+    read -p "User: " USER
+    read -ps "Password: " PWD
     echo ""
     echo "$USER" >user
     echo "$PWD" >pass
@@ -20,6 +20,10 @@ function create_credentials() {
 
 function get_service_ip() {
     kubectl -n rabbitmq get svc rabbitmq-client --no-headers | tr -s '   ' | cut -d ' ' -f 4
+}
+
+function get_cluster_pod() {
+    kubectl -n rabbitmq get pods rabbitmq-client --no-headers | tr -s '   ' | cut -d ' ' -f 3
 }
 
 function initialize_rabbitmq() {
@@ -48,7 +52,7 @@ function initialize_rabbitmq() {
     echo "Service creation...."
     kubectl apply -f ../configs/rabbitmq/service.yml
 
-    while [[ -z $(get_service_ip) ]]; do
+    while [[ $(get_service_ip) = "<pending>" ]]; do
         sleep 1
     done
     echo "RabbitMQ cluster configuration is now done, to access the administration interface, reach the following IP with 15672 port and login with the previously entered credentials"
