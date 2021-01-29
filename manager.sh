@@ -35,7 +35,7 @@ function backup_instance() {
 
     # Take a running pod and save from it
     local RUNNING_POD=$(wiistock get pods --no-headers -l app=$NAME | cut -d' ' -f 1 | head -n 1)
-    wiistock cp $RUNNING_POD:project/public/uploads/attachements $VOLUME_FOLDER &
+    wiistock cp $RUNNING_POD:project/public/uploads $VOLUME_FOLDER &
 
     wait
 }
@@ -116,7 +116,7 @@ function deploy() {
     log "Deploying $INSTANCE_COUNT instances"
 
     for INSTANCE in $INSTANCES; do
-        log "$INSTANCE - Starting database backup"
+        log "$INSTANCE - Starting database and volumes backup"
         backup_instance $INSTANCE &
     done
     wait
