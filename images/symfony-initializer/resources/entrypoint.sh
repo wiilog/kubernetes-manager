@@ -99,13 +99,15 @@ install_yarn() {
         php bin/console fos:js-routing:dump
     fi
 
-    FONT_FAMILY=$(execute_query "SELECT value FROM parametrage_global WHERE label = 'FONT FAMILY';" $DATABASE_NAME 2> /dev/null || true)
-    if [ -n "$FONT_FAMILY" ]; then
-        echo "Using font family \"$FONT_FAMILY\""
-        echo "\$mainFont: "$FONT_FAMILY";" > /project/assets/scss/_customFont.scss
-    else
-        echo "Using default font family"
-        echo "" > /project/assets/scss/_customFont.scss
+    if has_option "--with-fonts"; then
+        FONT_FAMILY=$(execute_query "SELECT value FROM parametrage_global WHERE label = 'FONT FAMILY';" $DATABASE_NAME 2> /dev/null || true)
+        if [ -n "$FONT_FAMILY" ]; then
+            echo "Using font family \"$FONT_FAMILY\""
+            echo "\$mainFont: "$FONT_FAMILY";" > /project/assets/scss/_customFont.scss
+        else
+            echo "Using default font family"
+            echo "" > /project/assets/scss/_customFont.scss
+        fi
     fi
 
     yarn build:only:production || true
