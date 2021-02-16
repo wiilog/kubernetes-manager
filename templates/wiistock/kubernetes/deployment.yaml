@@ -112,8 +112,6 @@ spec:
         ports:
         - containerPort: 80
         env:
-        - name: DOMAIN
-          value: "VAR:DOMAIN"
         - name: DATABASE_URL
           value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
         - name: APP_ENV
@@ -171,7 +169,7 @@ metadata:
 spec:
   tls:
   - hosts: ["VAR:DOMAIN"]
-    secretName: follow-gt-tls
+    secretName: VAR:INSTANCE_NAME-tls
   rules:
   - host: VAR:DOMAIN
     http:
