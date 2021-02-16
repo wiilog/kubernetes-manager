@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: boxeaty
+
+---  
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: boxeaty-uploads-pv
+  namespace: boxeaty
+spec:
+  capacity:
+    storage: 25Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: boxeaty-nfs
+  mountOptions:
+    - tcp
+    - nfsvers=3
+  nfs:
+    path: /zpool-127780/boxeaty
+    server: 10.16.103.99
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: boxeaty-uploads
+  namespace: boxeaty
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: boxeaty-nfs
+  resources:
+    requests:
+      storage: 25Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boxeaty
+  namespace: boxeaty
+  labels:
+    app: boxeaty
+    template: boxeaty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: boxeaty
+  template:
+    metadata:
+      labels:
+        app: boxeaty
+        template: boxeaty
+    spec:
+      imagePullSecrets:
+      - name: docker-token
+      volumes:
+      - name: project
+        emptyDir: {}
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: boxeaty-uploads
+      - name: symfony-cache
+        emptyDir: {}
+      initContainers:
+      - name: cloner
+        image: alpine/git
+        args: ["clone", "--branch=master", "--single-branch", "https://github.com/wiilog/boxeaty", "/project"]
+        volumeMounts:
+        - mountPath: /project
+          name: project
+      - name: initializer
+        image: wiilog/symfony-initializer:latest
+        command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures", "--with-fos"]
+        env:
+        - name: DATABASE_HOST
+          value: "cb249510-001.dbaas.ovh.net"
+        - name: DATABASE_PORT
+          value: "35403"
+        - name: DATABASE_USER
+          value: "boxeaty"
+        - name: DATABASE_PASSWORD
+          value: "p23dBItC7Ab65GVKwHl4G0CH1TAA8oE"
+        - name: DATABASE_NAME
+          value: "boxeaty"
+        - name: DATABASE_URL
+          value: "mysql://boxeaty:p23dBItC7Ab65GVKwHl4G0CH1TAA8oE@cb249510-001.dbaas.ovh.net:35403/boxeaty"
+        - name: APP_ENV
+          value: "prod"
+        volumeMounts:
+        - mountPath: /project
+          name: project
+        - mountPath: /project/var
+          name: symfony-cache
+      containers:
+      - name: boxeaty
+        image: wiilog/symfony:latest
+        command: ["/bootstrap/entrypoint.sh"]
+        ports:
+        - containerPort: 80
+        env:
+        - name: DATABASE_URL
+          value: "mysql://boxeaty:p23dBItC7Ab65GVKwHl4G0CH1TAA8oE@cb249510-001.dbaas.ovh.net:35403/boxeaty"
+        - name: APP_ENV
+          value: "prod"
+        - name: APP_SECRET
+          value: "sNGYRB3UiGby451T"
+        volumeMounts:
+        - mountPath: /project
+          name: project
+        - mountPath: /project/public/uploads
+          name: uploads
+        - mountPath: /project/var
+          name: symfony-cache
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: boxeaty
+  namespace: boxeaty
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: boxeaty
+
+---    
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: boxeaty
+  namespace: boxeaty
+  annotations:  
+    cert-manager.io/issuer: "letsencrypt-prod"
+    kubernetes.io/ingress.class: "nginx"  
+    nginx.ingress.kubernetes.io/proxy-body-size: 128m
+spec:
+  tls:
+  - hosts: ["boxeaty.follow-gt.fr"]
+    secretName: boxeaty-tls
+  rules:
+  - host: boxeaty.follow-gt.fr
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: boxeaty
+          servicePort: 80

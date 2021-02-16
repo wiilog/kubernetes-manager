@@ -108,7 +108,8 @@ install_yarn() {
         echo "" > /project/assets/scss/_customFont.scss
     fi
 
-    yarn build:only:production
+    yarn build:only:production || true
+    yarn production || true
 }
 
 cd /project
