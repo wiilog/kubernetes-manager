@@ -87,6 +87,9 @@ install_symfony() {
 
     if has_option "--with-fixtures"; then
         php bin/console doctrine:fixtures:load --append --group fixtures
+    fi
+
+    if has_option "--with-translations"; then
         php bin/console app:update:translations
     fi
 
