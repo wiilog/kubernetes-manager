@@ -99,7 +99,7 @@ install_symfony() {
 
 install_yarn() {
     if has_option "--with-fos"; then
-        php bin/console fos:js-routing:dump
+        php bin/console fos:js-routing:dump --format=json --target=public/generated/routes.json
     fi
 
     if has_option "--with-fonts"; then
