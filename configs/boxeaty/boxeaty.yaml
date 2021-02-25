@@ -80,17 +80,35 @@ spec:
         command: ["/bootstrap/entrypoint.sh", "--with-fixtures", "--with-fos"]
         env:
         - name: DATABASE_HOST
-          value: "cb249510-001.dbaas.ovh.net"
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty
+              key: host
         - name: DATABASE_PORT
-          value: "35403"
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty
+              key: port
         - name: DATABASE_USER
-          value: "boxeaty"
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty
+              key: user
         - name: DATABASE_PASSWORD
-          value: "p23dBItC7Ab65GVKwHl4G0CH1TAA8oE"
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty
+              key: password
         - name: DATABASE_NAME
-          value: "boxeaty"
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty
+              key: name
         - name: DATABASE_URL
-          value: "mysql://boxeaty:p23dBItC7Ab65GVKwHl4G0CH1TAA8oE@cb249510-001.dbaas.ovh.net:35403/boxeaty"
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty
+              key: database-url
         - name: APP_ENV
           value: "prod"
         volumeMounts:
@@ -106,11 +124,19 @@ spec:
         - containerPort: 80
         env:
         - name: DATABASE_URL
-          value: "mysql://boxeaty:p23dBItC7Ab65GVKwHl4G0CH1TAA8oE@cb249510-001.dbaas.ovh.net:35403/boxeaty"
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty
+              key: database-url
         - name: APP_ENV
           value: "prod"
         - name: APP_SECRET
           value: "sNGYRB3UiGby451T"
+        - name: MAILER_DSN
+          valueFrom:
+            secretKeyRef:
+              name: mailer
+              key: url
         volumeMounts:
         - mountPath: /project
           name: project

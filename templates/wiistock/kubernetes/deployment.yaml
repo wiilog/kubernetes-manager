@@ -111,6 +111,18 @@ spec:
         command: ["/bootstrap/entrypoint.sh"]
         ports:
         - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 80
+          initialDelaySeconds: 1
+          periodSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 3
         env:
         - name: DATABASE_URL
           value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"

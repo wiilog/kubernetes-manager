@@ -1,4 +1,5 @@
 /.secret
 /config/iot
 /config/passwords
+/configs/boxeaty/config.yaml
 /.idea
