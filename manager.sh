@@ -18,13 +18,15 @@ function backup_instance() {
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
-    mkdir -p $HOME/backups/$NAME/database
-    mkdir -p $HOME/backups/$NAME/volumes/uploads
+    mkdir -p $HOME/backups/$DATE/$NAME/database
+    mkdir -p $HOME/backups/$DATE/$NAME/volumes/uploads
 
-    local DATABASE_FILE="$HOME/backups/$NAME/database/$(date '+%Y-%m-%d-%k-%M-%S').sql"
+    local DATE=$(date '+%Y-%m-%d-%k-%M-%S')
+
+    local DATABASE_FILE="$HOME/backups/$DATE/$NAME/database/database.sql"
     local DATABASE_FILE=${DATABASE_FILE//[[:blank:]]/}
 
-    local VOLUME_FOLDER="$HOME/backups/$NAME/volumes/uploads/$(date '+%Y-%m-%d-%k-%M-%S')"
+    local VOLUME_FOLDER="$HOME/backups/$DATE/$NAME/volumes/uploads"
     local VOLUME_FOLDER=${VOLUME_FOLDER//[[:blank:]]/}
 
     mysqldump $DATABASE_NAME --no-tablespaces \
@@ -115,15 +117,10 @@ function deploy() {
     local INSTANCE
     log "Deploying $INSTANCE_COUNT instances"
 
-    for INSTANCE in $INSTANCES; do
-        log "$INSTANCE - Starting database and volumes backup"
-        backup_instance $INSTANCE &
-    done
-    wait
-
     export -f wiistock
     export -f log
     export -f do_deploy
+    export -f backup_instance
     echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c 'do_deploy "{}"'
 
     if [ $INSTANCE_COUNT -gt 1 ]; then
@@ -138,6 +135,10 @@ function do_deploy() {
     fi
 
     local NAME=$1
+
+    # Do database backups
+    log "$NAME - Starting database and volumes backup"
+    backup_instance $NAME &
 
     # Check if deployment exists
     local PODS=$(wiistock get deployments | grep "$NAME*")
@@ -162,6 +163,7 @@ function do_deploy() {
     local POD=$(wiistock get pods -l app=$NAME | grep "Init:1/2" | tr -s ' ' | cut -d ' ' -f 1)
 
     log "$NAME - Waiting for pods to reach migrations step"
+    sleep 5
 
     # Wait for the file to be created and get its content
     while [[ -z $(wiistock exec $POD -c initializer -- cat /tmp/migrations 2> /dev/null) ]]; do
