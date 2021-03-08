@@ -104,7 +104,7 @@ function deploy() {
     local INSTANCES
 
     if [[ $@ == "prod" ]]; then
-        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo -n demo)
+        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@)
     elif [[ $@ == "rec" ]]; then
         INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo -n test)
     else
