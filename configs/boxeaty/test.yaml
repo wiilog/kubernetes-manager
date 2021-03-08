@@ -1,0 +1,188 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: boxeaty
+
+---  
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: boxeaty-test-uploads-pv
+  namespace: boxeaty
+spec:
+  capacity:
+    storage: 25Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: boxeaty-test-nfs
+  mountOptions:
+    - tcp
+    - nfsvers=3
+  nfs:
+    path: /zpool-127780/boxeatytest
+    server: 10.16.103.99
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: boxeaty-test-uploads
+  namespace: boxeaty
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: boxeaty-test-nfs
+  resources:
+    requests:
+      storage: 25Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boxeaty-test
+  namespace: boxeaty
+  labels:
+    app: boxeaty-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: boxeaty-test
+  template:
+    metadata:
+      labels:
+        app: boxeaty-test
+    spec:
+      imagePullSecrets:
+      - name: docker-token
+      volumes:
+      - name: project
+        emptyDir: {}
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: boxeaty-test-uploads
+      - name: symfony-cache
+        emptyDir: {}
+      initContainers:
+      - name: cloner
+        image: alpine/git
+        args: ["clone", "--branch=master", "--single-branch", "https://github.com/wiilog/boxeaty", "/project"]
+        volumeMounts:
+        - mountPath: /project
+          name: project
+      - name: initializer
+        image: wiilog/symfony-initializer:latest
+        command: ["/bootstrap/entrypoint.sh", "--with-fixtures", "--with-fos"]
+        env:
+        - name: DATABASE_HOST
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty-test
+              key: host
+        - name: DATABASE_PORT
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty-test
+              key: port
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty-test
+              key: user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty-test
+              key: password
+        - name: DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty-test
+              key: name
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty-test
+              key: database-url
+        - name: APP_ENV
+          value: "prod"
+        volumeMounts:
+        - mountPath: /project
+          name: project
+        - mountPath: /project/var
+          name: symfony-cache
+      containers:
+      - name: boxeaty
+        image: wiilog/symfony:latest
+        command: ["/bootstrap/entrypoint.sh"]
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /api/ping
+            port: 80
+          initialDelaySeconds: 1
+          periodSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /api/ping
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: boxeaty-test
+              key: database-url
+        - name: APP_ENV
+          value: "prod"
+        - name: APP_SECRET
+          value: "sNGYRB3UiGby451T"
+        volumeMounts:
+        - mountPath: /project
+          name: project
+        - mountPath: /project/public/persistent
+          name: uploads
+        - mountPath: /project/var
+          name: symfony-cache
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: boxeaty-test
+  namespace: boxeaty
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: boxeaty-test
+
+---    
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: boxeaty-test
+  namespace: boxeaty
+  annotations:  
+    cert-manager.io/issuer: "letsencrypt-prod"
+    kubernetes.io/ingress.class: "nginx"  
+    nginx.ingress.kubernetes.io/proxy-body-size: 128m
+spec:
+  tls:
+  - hosts: ["boxeaty.wiilog.fr"]
+    secretName: boxeaty-test-tls
+  rules:
+  - host: boxeaty.wiilog.fr
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: boxeaty-test
+          servicePort: 80

@@ -18,12 +18,12 @@ function backup_instance() {
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
-    mkdir -p $HOME/backups/$DATE/$NAME/database
-    mkdir -p $HOME/backups/$DATE/$NAME/volumes/uploads
-
     local DATE=$(date '+%Y-%m-%d-%k-%M-%S')
 
-    local DATABASE_FILE="$HOME/backups/$DATE/$NAME/database/database.sql"
+    mkdir -p $HOME/backups/$DATE/$NAME
+    mkdir -p $HOME/backups/$DATE/$NAME/volumes/uploads
+
+    local DATABASE_FILE="$HOME/backups/$DATE/$NAME/database.sql"
     local DATABASE_FILE=${DATABASE_FILE//[[:blank:]]/}
 
     local VOLUME_FOLDER="$HOME/backups/$DATE/$NAME/volumes/uploads"
