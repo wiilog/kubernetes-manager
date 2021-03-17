@@ -18,8 +18,6 @@ function backup_instance() {
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
-    local DATE=$(date '+%Y-%m-%d-%k-%M-%S')
-
     mkdir -p $HOME/backups/$DATE/$NAME
     mkdir -p $HOME/backups/$DATE/$NAME/volumes/uploads
 
@@ -117,11 +115,13 @@ function deploy() {
     local INSTANCE
     log "Deploying $INSTANCE_COUNT instances"
 
+    local DATE=$(date '+%Y-%m-%d-%k-%M-%S')
+  
     export -f wiistock
     export -f log
     export -f do_deploy
     export -f backup_instance
-    echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c 'do_deploy "{}"'
+    echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c "do_deploy $DATE \"{}\""
 
     if [ $INSTANCE_COUNT -gt 1 ]; then
         log "Successfully deployed $INSTANCE_COUNT instances"
@@ -134,11 +134,14 @@ function do_deploy() {
         exit 201
     fi
 
+    local DATE=$1
+    shift
+
     local NAME=$1
 
     # Do database backups
     log "$NAME - Starting database and volumes backup"
-    backup_instance $NAME &
+    backup_instance $DATE $NAME &
 
     # Check if deployment exists
     local PODS=$(wiistock get deployments | grep "$NAME*")
