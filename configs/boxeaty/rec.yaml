@@ -69,7 +69,7 @@ spec:
       initContainers:
       - name: cloner
         image: alpine/git
-        args: ["clone", "--branch=master", "--single-branch", "https://github.com/wiilog/boxeaty", "/project"]
+        args: ["clone", "--branch=dev", "--single-branch", "https://github.com/wiilog/boxeaty", "/project"]
         volumeMounts:
         - mountPath: /project
           name: project
