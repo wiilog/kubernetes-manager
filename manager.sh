@@ -13,7 +13,9 @@ function log() {
 }
 
 function backup_instance() {
-    local NAME=$1
+    local DATE=$1
+    local NAME=$2
+    
     local DATABASE_NAME=${NAME//-}
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
@@ -135,8 +137,8 @@ function do_deploy() {
         exit 201
     fi
 
-    local DATE=$1
-    local NAME=$2
+    local DATE=$START_DATE
+    local NAME=$1
 
     # Do database backups
     log "$NAME - Starting database and volumes backup"
