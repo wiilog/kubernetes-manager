@@ -18,6 +18,7 @@ function backup_instance() {
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
+    mkdir -p $HOME/backups/$DATE
     mkdir -p $HOME/backups/$DATE/$NAME
     mkdir -p $HOME/backups/$DATE/$NAME/volumes/uploads
 
@@ -115,13 +116,13 @@ function deploy() {
     local INSTANCE
     log "Deploying $INSTANCE_COUNT instances"
 
-    local DATE=$(date '+%Y-%m-%d-%k-%M-%S')
-  
     export -f wiistock
     export -f log
     export -f do_deploy
     export -f backup_instance
-    echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c "do_deploy $DATE \"{}\""
+    export START_DATE=$(date '+%Y-%m-%d-%k-%M-%S')
+
+    echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c 'do_deploy "{}"'
 
     if [ $INSTANCE_COUNT -gt 1 ]; then
         log "Successfully deployed $INSTANCE_COUNT instances"
@@ -135,9 +136,7 @@ function do_deploy() {
     fi
 
     local DATE=$1
-    shift
-
-    local NAME=$1
+    local NAME=$2
 
     # Do database backups
     log "$NAME - Starting database and volumes backup"
