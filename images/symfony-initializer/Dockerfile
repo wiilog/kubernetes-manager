@@ -1,7 +1,7 @@
 FROM wiilog/symfony:latest
 
 RUN apk del nginx php7-fpm
-RUN apk add tar mysql-client yarn php7-cli php7-phar
+RUN apk add tar mysql-client git yarn php7-cli php7-phar
 
 # Install composer
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \
