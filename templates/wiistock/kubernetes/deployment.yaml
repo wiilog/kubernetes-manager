@@ -74,7 +74,7 @@ spec:
           name: project
       - name: initializer
         image: wiilog/symfony-initializer:latest
-        command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures", "--with-fos"]
+        command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures", "--with-translations", "--with-fos", "--with-fonts"]
         env:
         - name: DATABASE_HOST
           value: "VAR:DATABASE_HOST"
@@ -111,9 +111,19 @@ spec:
         command: ["/bootstrap/entrypoint.sh"]
         ports:
         - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 80
+          initialDelaySeconds: 1
+          periodSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 3
         env:
-        - name: DOMAIN
-          value: "VAR:DOMAIN"
         - name: DATABASE_URL
           value: "mysql://VAR:DATABASE_USER:VAR:DATABASE_PASS@VAR:DATABASE_HOST:VAR:DATABASE_PORT/VAR:DATABASE_NAME"
         - name: APP_ENV
@@ -171,7 +181,7 @@ metadata:
 spec:
   tls:
   - hosts: ["VAR:DOMAIN"]
-    secretName: follow-gt-tls
+    secretName: VAR:INSTANCE_NAME-tls
   rules:
   - host: VAR:DOMAIN
     http:

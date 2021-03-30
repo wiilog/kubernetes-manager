@@ -5,7 +5,8 @@ RUN apk add nginx php7 php7-pdo php7-pdo_mysql php7-zlib \
             curl php7-curl php7-json php7-mbstring php7-xml \
             php7-opcache php7-gd php7-intl php7-session \
             php7-tokenizer php7-iconv php-dom php7-mysqli \
-            php7-ctype php7-fpm php7-simplexml php7-fileinfo
+            php7-ctype php7-fpm php7-simplexml php7-fileinfo \
+            php7-xmlwriter php7-xmlreader php7-zip
 
 # Copy resources
 RUN mkdir /bootstrap
