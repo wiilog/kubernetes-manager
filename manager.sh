@@ -122,7 +122,7 @@ function deploy() {
     export -f log
     export -f do_deploy
     export -f backup_instance
-    export START_DATE=$(date '+%Y-%m-%d-%k-%M-%S')
+    export START_DATE=$(date '+%Y-%m-%d-%H-%M-%S')
 
     echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c 'do_deploy "{}"'
 
@@ -142,7 +142,7 @@ function do_deploy() {
 
     # Do database backups
     log "$NAME - Starting database and volumes backup"
-    backup_instance $DATE $NAME &
+    backup_instance "$DATE" $NAME &
 
     # Check if deployment exists
     local PODS=$(wiistock get deployments | grep "$NAME*")
