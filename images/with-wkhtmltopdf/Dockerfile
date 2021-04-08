@@ -24,3 +24,4 @@ RUN apk add --no-cache \
 
 # Copy wkhtmltopdf files from docker-wkhtmltopdf image
 COPY --from=wkhtmltopdf /bin/wkhtmltopdf /usr/bin/wkhtmltopdf
+COPY --from=wkhtmltopdf /bin/wkhtmltoimage /usr/bin/wkhtmltoimage

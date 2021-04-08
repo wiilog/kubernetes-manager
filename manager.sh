@@ -9,7 +9,7 @@ function wiistock() {
 }
 
 function log() {
-    echo "$(date '+%k:%M:%S') - $1"
+    echo "$(date '+%H:%M:%S') - $1"
 }
 
 function backup_instance() {

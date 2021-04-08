@@ -6,6 +6,7 @@ COMMAND=$1
 
 declare -A TIMES
 TIMES[imports]="*/30 * * * *"
+TIMES[scheduled-imports]="* * * * *"
 TIMES[dashboard-feeds]="*/5 * * * *"
 TIMES[average-requests]="0 20 * * *"
 TIMES[alerts]="0 20 * * *"
@@ -14,6 +15,7 @@ TIMES[missions]="0 23 * * 0"
 
 declare -A COMMANDS
 COMMANDS[imports]="php /project/bin/console app:launch:imports"
+COMMANDS[scheduled-imports]="php /project/bin/console app:launch:scheduled-imports"
 COMMANDS[dashboard-feeds]="php /project/bin/console app:feed:dashboards"
 COMMANDS[average-requests]="php /project/bin/console app:feed:average:requests"
 COMMANDS[alerts]="php /project/bin/console app:generate:alerts"
