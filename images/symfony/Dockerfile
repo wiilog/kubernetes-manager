@@ -19,4 +19,4 @@ ADD resources/nginx/default.conf    /etc/nginx/conf.d
 RUN chmod +x /bootstrap/*.sh
 
 # Socket files
-RUN mkdir /run/nginx /run/php-fpm
+RUN mkdir -p /run/nginx /run/php-fpm

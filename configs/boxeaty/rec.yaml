@@ -75,7 +75,7 @@ spec:
           name: project
       - name: initializer
         image: wiilog/symfony-initializer:latest
-        command: ["/bootstrap/entrypoint.sh", "--with-fixtures", "--with-fos"]
+        command: ["/bootstrap/entrypoint.sh", "--with-migrations", "--with-fixtures", "--with-fos"]
         env:
         - name: DATABASE_HOST
           valueFrom:

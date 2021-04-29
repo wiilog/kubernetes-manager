@@ -142,7 +142,7 @@ function do_deploy() {
 
     # Do database backups
     log "$NAME - Starting database and volumes backup"
-    backup_instance "$DATE" $NAME &
+    backup_instance "$DATE" $NAME
 
     # Check if deployment exists
     local PODS=$(wiistock get deployments | grep "$NAME*")
