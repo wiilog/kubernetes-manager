@@ -9,7 +9,6 @@ create_project() {
         --no-dev \
         --optimize-autoloader \
         --classmap-authoritative \
-        --no-scripts \
         --no-ansi
 
     yarn install
