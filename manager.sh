@@ -55,14 +55,13 @@ function backup_volume() {
         log "Backing up $NAME"
         
         mkdir -p $HOME/backups/volumes/$NAME
-        mkdir -p $HOME/backups/volumes/$NAME/$DATE
 
         local VOLUME_FOLDER="$HOME/backups/volumes/$NAME/$DATE"
         local VOLUME_FOLDER=${VOLUME_FOLDER//[[:blank:]]/}
 
         # Take a running pod and save from it
         local RUNNING_POD=$(wiistock get pods --no-headers -l app=$NAME | cut -d' ' -f 1 | head -n 1)
-        wiistock cp $RUNNING_POD:project/public/uploads $VOLUME_FOLDER &
+        wiistock cp $RUNNING_POD:project/public/uploads $VOLUME_FOLDER
     done
 
     if [ $INSTANCE_COUNT -gt 1 ]; then
