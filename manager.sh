@@ -12,7 +12,7 @@ function log() {
     echo "$(date '+%H:%M:%S') - $1"
 }
 
-function backup_instance() {
+function backup_database() {
     local DATE=$1
     local NAME=$2
     
@@ -20,27 +20,54 @@ function backup_instance() {
     local DATABASE_USER=${NAME%-*}
     local DATABASE_PASSWORD=$(cat configs/passwords/$DATABASE_USER)
 
-    mkdir -p $HOME/backups/$DATE
-    mkdir -p $HOME/backups/$DATE/$NAME
-    mkdir -p $HOME/backups/$DATE/$NAME/volumes/uploads
+    mkdir -p $HOME/backups/database
+    mkdir -p $HOME/backups/database/$NAME
 
-    local DATABASE_FILE="$HOME/backups/$DATE/$NAME/database.sql"
+    local DATABASE_FILE="$HOME/backups/database/$NAME/$DATE.sql"
     local DATABASE_FILE=${DATABASE_FILE//[[:blank:]]/}
-
-    local VOLUME_FOLDER="$HOME/backups/$DATE/$NAME/volumes/uploads"
-    local VOLUME_FOLDER=${VOLUME_FOLDER//[[:blank:]]/}
 
     mysqldump $DATABASE_NAME --no-tablespaces \
         --host="cb249510-001.dbaas.ovh.net" \
         --user="$DATABASE_USER" \
         --port=35403 \
-        --password="$DATABASE_PASSWORD" > "${DATABASE_FILE}" 2> /dev/null &
-
-    # Take a running pod and save from it
-    local RUNNING_POD=$(wiistock get pods --no-headers -l app=$NAME | cut -d' ' -f 1 | head -n 1)
-    wiistock cp $RUNNING_POD:project/public/uploads $VOLUME_FOLDER &
+        --password="$DATABASE_PASSWORD" > "${DATABASE_FILE}" 2> /dev/null
 
     wait
+}
+
+function backup_volume() {
+    local INSTANCES
+
+    if [[ $@ == "prod" ]]; then
+        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@)
+    elif [[ $@ == "rec" ]]; then
+        INSTANCES=$(wiistock get deployments | cut -d' ' -f1 | grep $@ && echo -n test)
+    else
+        INSTANCES=$@
+    fi
+
+    local DATE=$(date '+%Y-%m-%d-%H-%M-%S')
+    local INSTANCE_COUNT=$(echo $INSTANCES | wc -w)
+    local INSTANCE
+    log "Backing up $INSTANCE_COUNT instances"
+
+    for NAME in $INSTANCES; do
+        log "Backing up $NAME"
+        
+        mkdir -p $HOME/backups/volumes/$NAME
+        mkdir -p $HOME/backups/volumes/$NAME/$DATE
+
+        local VOLUME_FOLDER="$HOME/backups/volumes/$NAME/$DATE"
+        local VOLUME_FOLDER=${VOLUME_FOLDER//[[:blank:]]/}
+
+        # Take a running pod and save from it
+        local RUNNING_POD=$(wiistock get pods --no-headers -l app=$NAME | cut -d' ' -f 1 | head -n 1)
+        wiistock cp $RUNNING_POD:project/public/uploads $VOLUME_FOLDER &
+    done
+
+    if [ $INSTANCE_COUNT -gt 1 ]; then
+        log "Successfully backed up $INSTANCE_COUNT instances"
+    fi
 }
 
 function patch() {
@@ -121,7 +148,7 @@ function deploy() {
     export -f wiistock
     export -f log
     export -f do_deploy
-    export -f backup_instance
+    export -f backup_database
     export START_DATE=$(date '+%Y-%m-%d-%H-%M-%S')
 
     echo -n $INSTANCES | xargs -I {} --delimiter " " --max-procs 5 bash -c 'do_deploy "{}"'
@@ -142,7 +169,7 @@ function do_deploy() {
 
     # Do database backups
     log "$NAME - Starting database and volumes backup"
-    backup_instance "$DATE" $NAME
+    backup_database "$DATE" $NAME
 
     # Check if deployment exists
     local PODS=$(wiistock get deployments | grep "$NAME*")
@@ -332,6 +359,7 @@ function usage() {
     echo "    reconfigure <template> <name>        Recreates the configuration files and"
     echo "                                         apply them to the running instance"
     echo "    deploy <...instances>                Deploys the given instance(s)"
+    echo "    backup-volume <...instances>         Makes a backup of the volumes"
     echo "    open <instance>                      Opens a bash in the instance"
     echo "    cache <template>                     Creates or updates a template's cache"
     echo "    delete <instance>                    Deletes a deployment"
@@ -353,6 +381,7 @@ case $COMMAND in
     create-instance)    create_instance "$@" ;;
     reconfigure)        reconfigure "$@" ;;
     deploy)             deploy "$@" ;;
+    backup-volume)      backup_volume "$@" ;;
     open)               open "$@" ;;
     cache)              cache "$@" ;;
     delete)             delete "$@" ;;
