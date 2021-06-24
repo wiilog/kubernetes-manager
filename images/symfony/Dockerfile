@@ -13,6 +13,7 @@ RUN mkdir /bootstrap
 ADD resources/entrypoint.sh         /bootstrap
 ADD resources/maintenance.sh        /bootstrap
 ADD resources/php/php.ini           /etc/php7
+ADD resources/cacert.pem            /etc/php7
 ADD resources/fpm/php-fpm.conf      /etc/php7
 ADD resources/nginx/nginx.conf      /etc/nginx
 ADD resources/nginx/default.conf    /etc/nginx/conf.d
