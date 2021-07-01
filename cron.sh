@@ -13,6 +13,7 @@ TIMES[average-requests]="0 20 * * *"
 TIMES[alerts]="0 20 * * *"
 TIMES[dispute-mails]="0 8 * * *"
 TIMES[missions]="0 23 * * 0"
+TIMES[cleanup-pairings]="*/10 * * * 0"
 
 declare -A COMMANDS
 COMMANDS[imports]="php /project/bin/console app:launch:imports"
@@ -23,6 +24,7 @@ COMMANDS[average-requests]="php /project/bin/console app:feed:average:requests"
 COMMANDS[alerts]="php /project/bin/console app:generate:alerts"
 COMMANDS[dispute-mails]="php /project/bin/console app:mails-litiges"
 COMMANDS[missions]="php /project/bin/console app:generate:mission"
+COMMANDS[cleanup-pairings]="php /project/bin/console app:iot:pairing-validity"
 
 declare -A SPECIFICS
 SPECIFICS[dashboard-feeds-every-minute]="col1-prod col1-rec"
